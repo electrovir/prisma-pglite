@@ -2,7 +2,6 @@ import {assert} from '@augment-vir/assert';
 import {wrapString} from '@augment-vir/common';
 import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
 import {describe, extractTestName, it} from '@augment-vir/test';
-import {PrismaClient} from '@prisma/client';
 import {existsSync} from 'node:fs';
 import {mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
@@ -222,8 +221,6 @@ describe('cli', () => {
         );
     });
     it('resets a database', async (testContext) => {
-        await setupPrisma();
-
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
@@ -235,7 +232,7 @@ describe('cli', () => {
         await rm(migrationsDirPath, {recursive: true, force: true});
         assert.isFalse(existsSync(migrationsDirPath));
 
-        const prismaClient = new PrismaClient({
+        const prismaClient = new (await setupPrisma())({
             adapter: await createPgliteAdapter({
                 schemaFilePath: mockPrismaSchema,
                 directDatabaseDirPath: databaseDirPath,
