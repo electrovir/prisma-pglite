@@ -1,0 +1,13 @@
+const {baseConfig} = require('@virmator/spellcheck/configs/cspell.config.base.cjs');
+
+module.exports = {
+    ...baseConfig,
+    ignorePaths: [
+        ...baseConfig.ignorePaths,
+        'test-files/migrations',
+    ],
+    words: [
+        ...baseConfig.words,
+        'pglite',
+    ],
+};
