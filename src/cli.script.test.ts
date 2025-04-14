@@ -14,6 +14,7 @@ import {
     migrationLockFileName,
 } from './migrations/migrate-dev.js';
 import {mockPrismaSchema, notCommittedDirPath} from './util/file-paths.mock.js';
+import {setupPrisma} from './util/setup-prisma.mock.js';
 
 async function runCli(args: ReadonlyArray<string>) {
     const fullCommand = [
@@ -221,6 +222,8 @@ describe('cli', () => {
         );
     });
     it('resets a database', async (testContext) => {
+        await setupPrisma();
+
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',

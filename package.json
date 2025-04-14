@@ -1,6 +1,6 @@
 {
     "name": "prisma-pglite",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Making Prisma easy to use with PGlite.",
     "keywords": [
         "prisma",
@@ -33,7 +33,6 @@
         "compile": "virmator compile",
         "docs": "virmator docs",
         "format": "virmator format",
-        "postinstall": "prisma generate --schema test-files/schema.prisma --no-hints",
         "lint": "virmator lint fix",
         "publish": "virmator publish npm run test:all",
         "start": "tsx src/index.ts",
