@@ -1,5 +1,5 @@
 import {assert} from '@augment-vir/assert';
-import type {BasePrismaClient} from '@augment-vir/common';
+import {type BasePrismaClient} from '@augment-vir/common';
 
 export async function verifyPrismaClient(prismaClient: BasePrismaClient) {
     const mockUserData = {

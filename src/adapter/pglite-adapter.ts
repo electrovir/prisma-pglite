@@ -1,5 +1,6 @@
 import {log, type PartialWithUndefined} from '@augment-vir/common';
 import {extractTestName, type UniversalTestContext} from '@augment-vir/test';
+import {type PGlite} from '@electric-sql/pglite';
 import {existsSync} from 'node:fs';
 import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
@@ -60,6 +61,34 @@ export type PgliteAdapterParams = PartialWithUndefined<{
 }>;
 
 /**
+ * Params for {@link PrismaPgliteAdapter}.
+ *
+ * @category Internal
+ */
+export type PrismaPgliteAdapterParams = {
+    wasJustInitialized: boolean;
+    databaseDirPath: string;
+};
+
+/**
+ * Extension of the core `PrismaPGlite` PGlite adapter that adds extra properties for external
+ * convenience.
+ *
+ * @category Internal
+ */
+export class PrismaPgliteAdapter extends PrismaPGlite {
+    public readonly wasJustInitialized: boolean;
+    public readonly databaseDirPath: string;
+
+    constructor(pglite: PGlite, params: Readonly<PrismaPgliteAdapterParams>) {
+        super(pglite);
+
+        this.wasJustInitialized = params.wasJustInitialized;
+        this.databaseDirPath = params.databaseDirPath;
+    }
+}
+
+/**
  * Creates a PGlite adapter than can be used with the `PrismaClient` constructor. This will create a
  * new PGlite database on your file system, if one does not already exist, and push your schema to
  * it (similar to `prisma db push`). This _cannot_, however, push new migrations to an existing
@@ -94,7 +123,9 @@ export type PgliteAdapterParams = PartialWithUndefined<{
  * }
  * ```
  */
-export async function createPgliteAdapter(params: PgliteAdapterParams = {}) {
+export async function createPgliteAdapter(
+    params: PgliteAdapterParams = {},
+): Promise<PrismaPgliteAdapter> {
     try {
         /* node:coverage ignore next 1: this is not a branch operation */
         const {PGlite} = await import('@electric-sql/pglite');
@@ -125,7 +156,10 @@ export async function createPgliteAdapter(params: PgliteAdapterParams = {}) {
                 ),
             );
         }
-        return new PrismaPGlite(pglite);
+        return new PrismaPgliteAdapter(pglite, {
+            databaseDirPath,
+            wasJustInitialized: needsInit,
+        });
     } catch (error) {
         log.if(!params.silent).error(error);
         /** Add our own error message because PGlite's error messages are really cryptic. */

@@ -1,6 +1,6 @@
 {
     "name": "prisma-pglite",
-    "version": "0.0.2",
+    "version": "0.1.0",
     "description": "Making Prisma easy to use with PGlite.",
     "keywords": [
         "prisma",
