@@ -33,25 +33,23 @@ export type PgliteMigrationParams = PartialWithUndefined<{
      * migrationsDirPath ? join(dirname(migrationsDirPath), 'schema.prisma') : join(process.cwd(), 'prisma', 'schema.prisma')
      */
     schemaFilePath: string;
+    /**
+     * The file name for snapshots saved into the migrations folder. This defaults to a name that
+     * won't easily clash with the actual `schema.prisma` file when devs are searching for it.
+     *
+     * @default 'source.snapshot'
+     */
+    snapshotFileName: string;
+    /**
+     * Silence all logs.
+     *
+     * @default false
+     */
+    silent: boolean;
 }> & {
     /** The name of the new migration, if one is needed. */
     migrationName: string;
-} & PartialWithUndefined<{
-        /**
-         * The file name for snapshots saved into the migrations folder. This defaults to a name
-         * that won't easily clash with the actual `schema.prisma` file when devs are searching for
-         * it.
-         *
-         * @default 'source.snapshot'
-         */
-        snapshotFileName: string;
-        /**
-         * Silence all logs.
-         *
-         * @default false
-         */
-        silent: boolean;
-    }>;
+};
 
 type ResolvedPgliteMigrationParams = RequiredAndNotNull<PgliteMigrationParams>;
 
