@@ -89,6 +89,22 @@ export class PrismaPgliteAdapter extends PrismaPGlite {
 }
 
 /**
+ * Gets a clean db name from a test context.
+ *
+ * @category Internal
+ */
+export function getDbDirNameFromTestContext(
+    testContext: UniversalTestContext | undefined,
+): string | undefined {
+    if (!testContext) {
+        return undefined;
+    }
+
+    /** Directories on Windows can't handle special characters that are included in test names. */
+    return extractTestName(testContext).replaceAll(/[ >]/g, '_').replaceAll(/_+/g, '_');
+}
+
+/**
  * Creates a PGlite adapter than can be used with the `PrismaClient` constructor. This will create a
  * new PGlite database on your file system, if one does not already exist, and push your schema to
  * it (similar to `prisma db push`). This _cannot_, however, push new migrations to an existing
@@ -130,7 +146,7 @@ export async function createPgliteAdapter(
         /* node:coverage ignore next 1: this is not a branch operation */
         const {PGlite} = await import('@electric-sql/pglite');
 
-        const testName = params.testContext ? extractTestName(params.testContext) : undefined;
+        const testName = getDbDirNameFromTestContext(params.testContext);
 
         const databaseDirPath =
             params.directDatabaseDirPath ||
