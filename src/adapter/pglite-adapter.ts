@@ -1,5 +1,6 @@
+import {check} from '@augment-vir/assert';
 import {log, type PartialWithUndefined} from '@augment-vir/common';
-import {extractTestName, type UniversalTestContext} from '@augment-vir/test';
+import {extractTestNameAsDir, type UniversalTestContext} from '@augment-vir/test';
 import {type PGlite} from '@electric-sql/pglite';
 import {existsSync} from 'node:fs';
 import {mkdir, rm} from 'node:fs/promises';
@@ -32,12 +33,12 @@ export type PgliteAdapterParams = PartialWithUndefined<{
      */
     directDatabaseDirPath: string;
     /**
-     * A test context for running Prisma PGlite for unit tests. If a test context is provided, the
+     * A test context or name for running Prisma PGlite for unit tests. If this is provided, the
      * final database directory will be `join(pgliteDirPath, <test-name>)`.
      *
      * @default undefined
      */
-    testContext: UniversalTestContext;
+    test: string | UniversalTestContext;
     /**
      * Path to the `schema.prisma` file. This is necessary in order to generate the SQL init script
      * necessary for PGlite to initialize your database.
@@ -89,22 +90,6 @@ export class PrismaPgliteAdapter extends PrismaPGlite {
 }
 
 /**
- * Gets a clean db name from a test context.
- *
- * @category Internal
- */
-export function getDbDirNameFromTestContext(
-    testContext: UniversalTestContext | undefined,
-): string | undefined {
-    if (!testContext) {
-        return undefined;
-    }
-
-    /** Directories on Windows can't handle special characters that are included in test names. */
-    return extractTestName(testContext).replaceAll(/[ >]/g, '_').replaceAll(/_+/g, '_');
-}
-
-/**
  * Creates a PGlite adapter than can be used with the `PrismaClient` constructor. This will create a
  * new PGlite database on your file system, if one does not already exist, and push your schema to
  * it (similar to `prisma db push`). This _cannot_, however, push new migrations to an existing
@@ -146,7 +131,11 @@ export async function createPgliteAdapter(
         /* node:coverage ignore next 1: this is not a branch operation */
         const {PGlite} = await import('@electric-sql/pglite');
 
-        const testName = getDbDirNameFromTestContext(params.testContext);
+        const testName: string | undefined = check.isString(params.test)
+            ? params.test
+            : params.test
+              ? extractTestNameAsDir(params.test)
+              : undefined;
 
         const databaseDirPath =
             params.directDatabaseDirPath ||

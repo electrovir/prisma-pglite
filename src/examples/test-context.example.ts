@@ -11,7 +11,7 @@ describe('my test', () => {
             adapter: await createPgliteAdapter({
                 schemaFilePath: mySchemaPath,
                 pgliteDirPath: join('.dev', 'pglite'),
-                testContext,
+                test: testContext,
             }),
         });
     });

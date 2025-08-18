@@ -1,7 +1,7 @@
 import {assert} from '@augment-vir/assert';
 import {wrapString} from '@augment-vir/common';
 import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
-import {describe, extractTestName, it} from '@augment-vir/test';
+import {describe, extractTestNameAsDir, it} from '@augment-vir/test';
 import {existsSync} from 'node:fs';
 import {mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
@@ -41,7 +41,7 @@ describe('cli', () => {
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
 
@@ -101,7 +101,7 @@ describe('cli', () => {
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
 
@@ -143,7 +143,7 @@ describe('cli', () => {
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
 
@@ -184,7 +184,7 @@ describe('cli', () => {
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
 
@@ -224,7 +224,7 @@ describe('cli', () => {
         const migrationsDirPath = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
         const databaseDirPath = join(dirname(migrationsDirPath), 'pglite');

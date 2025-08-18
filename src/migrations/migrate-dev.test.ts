@@ -1,6 +1,6 @@
 import {assert} from '@augment-vir/assert';
 import {collapseWhiteSpace} from '@augment-vir/common';
-import {describe, extractTestName, it, itCases} from '@augment-vir/test';
+import {describe, extractTestNameAsDir, it, itCases} from '@augment-vir/test';
 import {mkdir, readdir, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {
@@ -72,7 +72,7 @@ describe(findLatestMigrationPath.name, () => {
         const emptyMigrationsFolder = join(
             notCommittedDirPath,
             'tests',
-            extractTestName(testContext),
+            extractTestNameAsDir(testContext),
             'migrations',
         );
 

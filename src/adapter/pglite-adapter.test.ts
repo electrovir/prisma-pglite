@@ -5,7 +5,7 @@ import {rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {mockPrismaSchema, notCommittedDirPath} from '../util/file-paths.mock.js';
 import {setupPrisma} from '../util/setup-prisma.mock.js';
-import {createPgliteAdapter, getDbDirNameFromTestContext} from './pglite-adapter.js';
+import {createPgliteAdapter} from './pglite-adapter.js';
 import {verifyPrismaClient} from './pglite-adapter.mock.js';
 
 describe(createPgliteAdapter.name, () => {
@@ -14,7 +14,19 @@ describe(createPgliteAdapter.name, () => {
 
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({
-                testContext,
+                test: testContext,
+                schemaFilePath: mockPrismaSchema,
+            }),
+        });
+
+        await verifyPrismaClient(prismaClient);
+    });
+    it('creates a functioning adapter with a test name', async (testContext) => {
+        const PrismaClient = await setupPrisma();
+
+        const prismaClient = new PrismaClient({
+            adapter: await createPgliteAdapter({
+                test: 'my name',
                 schemaFilePath: mockPrismaSchema,
             }),
         });
@@ -58,7 +70,7 @@ describe(createPgliteAdapter.name, () => {
             async () => {
                 const prismaClient = new PrismaClient({
                     adapter: await createPgliteAdapter({
-                        testContext,
+                        test: testContext,
                     }),
                 });
             },
@@ -66,17 +78,5 @@ describe(createPgliteAdapter.name, () => {
                 matchMessage: 'Failed to initialize PGlite Prisma adapter',
             },
         );
-    });
-});
-
-describe(getDbDirNameFromTestContext.name, () => {
-    it('fixes a test name', (testContext) => {
-        assert.strictEquals(
-            getDbDirNameFromTestContext(testContext),
-            'getDbDirNameFromTestContext_fixes_a_test_name',
-        );
-    });
-    it('passes undefined', () => {
-        assert.isUndefined(getDbDirNameFromTestContext(undefined));
     });
 });

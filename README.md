@@ -185,7 +185,7 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
                 adapter: await createPgliteAdapter({
                     schemaFilePath: mySchemaPath,
                     pgliteDirPath: join('.dev', 'pglite'),
-                    testContext,
+                    test: testContext,
                 }),
             });
         });
