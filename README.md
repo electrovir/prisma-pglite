@@ -10,7 +10,7 @@ Enabling easy [Prisma](https://www.npmjs.com/package/prisma) usage with [PGlite]
 
 -   **adapter helper**
 
-    -   Wraps [pglite-prisma-adapter](https://www.npmjs.com/package/pglite-prisma-adapter).
+    -   Includes and wraps [pglite-prisma-adapter](https://www.npmjs.com/package/pglite-prisma-adapter).
     -   Automatically propagates your schema to the PGlite database (similar to `prisma db push` but lacking the ability to apply new migrations to an existing PGlite database).
 
 See the full reference docs at https://electrovir.github.io/prisma-pglite

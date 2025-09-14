@@ -5,9 +5,9 @@ import {type PGlite} from '@electric-sql/pglite';
 import {existsSync} from 'node:fs';
 import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {PrismaPGlite} from 'pglite-prisma-adapter';
 import {getDefaultPgliteDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
 import {generateInitSql} from '../util/sql-init.js';
+import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
 
 /**
  * Params for {@link createPgliteAdapter}.
@@ -77,7 +77,7 @@ export type PrismaPgliteAdapterParams = {
  *
  * @category Internal
  */
-export class PrismaPgliteAdapter extends PrismaPGlite {
+export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
     public readonly wasJustInitialized: boolean;
     public readonly databaseDirPath: string;
 
