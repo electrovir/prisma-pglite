@@ -25,6 +25,12 @@ export type PgliteAdapterParams = PartialWithUndefined<{
      */
     dbParentDirPath: string;
     /**
+     * A optional name for the database. This allows separate prisma schemas to be used (for
+     * different databases) with the same configurations otherwise. If this is provided, the final
+     * database directory will be in `join(dbParentDirPath, <dbDirName || 'dev'>, databaseName)`
+     */
+    databaseName: string;
+    /**
      * Overwrites `dbParentDirPath` and `testContext`, if either is provided, to provide a direct
      * path to the PGlite database folder rather than deducing the folder path from
      * `dbParentDirPath`.
@@ -34,12 +40,14 @@ export type PgliteAdapterParams = PartialWithUndefined<{
      */
     directDatabaseDirPath: string;
     /**
-     * A test context or name for running Prisma PGlite for unit tests. If this is provided, the
-     * final database directory will be `join(dbParentDirPath, <test-name>)`.
+     * Either a `UniversalTestContext` instance (which a dir name is extracted from), or a direct
+     * database dir name. This is primarily used for running unit tests with a new database per
+     * test, but can also be used to override the default `'dev'` database dir name. If this is
+     * provided, the final database directory will be in `join(dbParentDirPath, <dbDirName>)`.
      *
      * @default undefined
      */
-    test: string | UniversalTestContext;
+    dbDirName: string | UniversalTestContext;
     /**
      * Path to the `schema.prisma` file. This is necessary in order to generate the SQL init script
      * necessary for PGlite to initialize your database.
@@ -132,21 +140,21 @@ export async function createPgliteAdapter(
         /* node:coverage ignore next 1: this is not a branch operation */
         const {PGlite} = await import('@electric-sql/pglite');
 
-        const testName: string | undefined = check.isString(params.test)
-            ? params.test
-            : params.test
-              ? extractTestNameAsDir(params.test)
-              : undefined;
+        const dbDirName: string = check.isString(params.dbDirName)
+            ? params.dbDirName
+            : params.dbDirName
+              ? extractTestNameAsDir(params.dbDirName)
+              : 'dev';
 
-        const databaseDirPath =
-            params.directDatabaseDirPath ||
-            join(params.dbParentDirPath || getDefaultDbParentDirPath(), testName || 'dev');
+        const pathParts: string[] = [
+            params.dbParentDirPath || getDefaultDbParentDirPath(),
+            dbDirName,
+            params.databaseName || '',
+        ].filter(check.isTruthy);
 
-        if (
-            params.resetDatabase ||
-            /** For tests, always reset the database. */
-            testName
-        ) {
+        const databaseDirPath = params.directDatabaseDirPath || join(...pathParts);
+
+        if (params.resetDatabase) {
             await rm(databaseDirPath, {recursive: true, force: true});
         }
         const needsInit = !existsSync(databaseDirPath);

@@ -14,22 +14,52 @@ describe(createPgliteAdapter.name, () => {
 
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({
-                test: testContext,
+                dbDirName: testContext,
+                resetDatabase: true,
                 schemaFilePath: mockPrismaSchema,
             }),
         });
 
         await verifyPrismaClient(prismaClient);
     });
-    it('creates a functioning adapter with a test name', async (testContext) => {
+    it('creates a functioning adapter with a string dbDirName', async () => {
         const PrismaClient = await setupPrisma();
 
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({
-                test: 'my name',
+                dbDirName: 'my name',
+                resetDatabase: true,
                 schemaFilePath: mockPrismaSchema,
             }),
         });
+
+        await verifyPrismaClient(prismaClient);
+    });
+    it('supports databaseName', async (testContext) => {
+        const PrismaClient = await setupPrisma();
+
+        const adapter = await createPgliteAdapter({
+            dbDirName: testContext,
+            resetDatabase: true,
+            schemaFilePath: mockPrismaSchema,
+            databaseName: 'db1',
+        });
+
+        const prismaClient = new PrismaClient({
+            adapter,
+        });
+
+        assert.strictEquals(
+            adapter.databaseDirPath,
+            join(
+                notCommittedDirPath,
+                'pglite',
+                'create_pglite_adapter_supports_database_name',
+                'db1',
+            ),
+        );
+
+        assert.isTrue(existsSync(adapter.databaseDirPath));
 
         await verifyPrismaClient(prismaClient);
     });
@@ -70,7 +100,8 @@ describe(createPgliteAdapter.name, () => {
             async () => {
                 const prismaClient = new PrismaClient({
                     adapter: await createPgliteAdapter({
-                        test: testContext,
+                        dbDirName: testContext,
+                        resetDatabase: true,
                     }),
                 });
             },
