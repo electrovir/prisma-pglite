@@ -35,18 +35,18 @@ describe(createPgliteAdapter.name, () => {
     });
     it('will reset a custom pglite dir with default dev', async () => {
         const PrismaClient = await setupPrisma();
-        const customPgliteDirPath = join(notCommittedDirPath, 'tests', 'custom-pglite');
-        await rm(customPgliteDirPath, {recursive: true, force: true});
+        const customDbParentDirPath = join(notCommittedDirPath, 'tests', 'custom-pglite');
+        await rm(customDbParentDirPath, {recursive: true, force: true});
 
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
                 schemaFilePath: mockPrismaSchema,
-                pgliteDirPath: customPgliteDirPath,
+                dbParentDirPath: customDbParentDirPath,
             }),
         });
-        assert.isTrue(existsSync(join(customPgliteDirPath, 'dev')));
+        assert.isTrue(existsSync(join(customDbParentDirPath, 'dev')));
 
         await verifyPrismaClient(prismaClient);
         await prismaClient.$disconnect();
@@ -55,11 +55,11 @@ describe(createPgliteAdapter.name, () => {
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
                 schemaFilePath: mockPrismaSchema,
-                pgliteDirPath: customPgliteDirPath,
+                dbParentDirPath: customDbParentDirPath,
                 resetDatabase: true,
             }),
         });
-        assert.isTrue(existsSync(join(customPgliteDirPath, 'dev')));
+        assert.isTrue(existsSync(join(customDbParentDirPath, 'dev')));
         assert.isEmpty(await prismaClient2.user.findMany());
     });
     it('reads the default schema path', async (testContext) => {

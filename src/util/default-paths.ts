@@ -7,7 +7,7 @@ import {join} from 'node:path';
  *
  * @category Internal
  */
-export function getDefaultPgliteDirPath() {
+export function getDefaultDbParentDirPath() {
     const packageLockJsonPath = findAncestor(process.cwd(), (currentPath) => {
         return existsSync(join(currentPath, 'package-lock.json'));
     });

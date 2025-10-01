@@ -1,7 +1,7 @@
 import {log, type PartialWithUndefined, type RequiredAndNotNull} from '@augment-vir/common';
 import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {getDefaultPgliteDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
+import {getDefaultDbParentDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
 import {generateInitSql} from '../util/sql-init.js';
 
 /**
@@ -63,7 +63,7 @@ function finalizeResetParams(
     return {
         schemaFilePath: params.schemaFilePath || getDefaultSchemaPath(),
         pgliteDatabaseDirPath:
-            params.pgliteDatabaseDirPath || join(getDefaultPgliteDirPath(), 'dev'),
+            params.pgliteDatabaseDirPath || join(getDefaultDbParentDirPath(), 'dev'),
         silent: !!params.silent,
     };
 }

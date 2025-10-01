@@ -10,7 +10,7 @@ describe('my test', () => {
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({
                 schemaFilePath: mySchemaPath,
-                pgliteDirPath: join('.dev', 'pglite'),
+                dbParentDirPath: join('.dev', 'pglite'),
                 test: testContext,
             }),
         });

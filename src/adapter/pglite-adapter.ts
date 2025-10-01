@@ -5,7 +5,7 @@ import {type PGlite} from '@electric-sql/pglite';
 import {existsSync} from 'node:fs';
 import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {getDefaultPgliteDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
+import {getDefaultDbParentDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
 import {generateInitSql} from '../util/sql-init.js';
 import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
 
@@ -16,17 +16,18 @@ import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
  */
 export type PgliteAdapterParams = PartialWithUndefined<{
     /**
-     * This is the path to your PGlite parent directory. Inside of this directly will be created the
-     * actual PGlite directories for either `'dev'` or the provided test context.
+     * This is the path to your PGlite parent directory. Inside of this directory will be created
+     * the actual PGlite directories for each database name..
      *
      * @default
      * - join('<dir of package-lock.json>', '.not-committed', 'pglite')
      * - join(process.cwd(), '.not-committed', 'pglite')
      */
-    pgliteDirPath: string;
+    dbParentDirPath: string;
     /**
-     * Overwrites `pgliteDirPath` and `testContext`, if either is provided, to provide a direct path
-     * to the PGlite database folder rather than deducing the folder path from `pgliteDirPath`.
+     * Overwrites `dbParentDirPath` and `testContext`, if either is provided, to provide a direct
+     * path to the PGlite database folder rather than deducing the folder path from
+     * `dbParentDirPath`.
      *
      * @default
      * undefined
@@ -34,7 +35,7 @@ export type PgliteAdapterParams = PartialWithUndefined<{
     directDatabaseDirPath: string;
     /**
      * A test context or name for running Prisma PGlite for unit tests. If this is provided, the
-     * final database directory will be `join(pgliteDirPath, <test-name>)`.
+     * final database directory will be `join(dbParentDirPath, <test-name>)`.
      *
      * @default undefined
      */
@@ -139,7 +140,7 @@ export async function createPgliteAdapter(
 
         const databaseDirPath =
             params.directDatabaseDirPath ||
-            join(params.pgliteDirPath || getDefaultPgliteDirPath(), testName || 'dev');
+            join(params.dbParentDirPath || getDefaultDbParentDirPath(), testName || 'dev');
 
         if (
             params.resetDatabase ||

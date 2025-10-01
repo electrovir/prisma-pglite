@@ -7,6 +7,6 @@ const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
 const prismaClient = new PrismaClient({
     adapter: await createPgliteAdapter({
         schemaFilePath: mySchemaPath,
-        pgliteDirPath: join('.dev', 'pglite'),
+        dbParentDirPath: join('.dev', 'pglite'),
     }),
 });
