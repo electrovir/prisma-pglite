@@ -1,5 +1,5 @@
-import {PrismaClient} from '@prisma/client';
 import {join} from 'node:path';
+import {PrismaClient} from '../generated/client.js';
 import {createPgliteAdapter} from '../index.js';
 
 const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');

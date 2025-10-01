@@ -104,7 +104,7 @@ export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
  * Usage in TypeScript:
  *
  * ```ts
- * import {PrismaClient} from '@prisma/client';
+ * import {PrismaClient} from '../generated/client.js';
  * import {createPgliteAdapter} from 'prisma-pglite';
  *
  * const prismaClient = new PrismaClient({

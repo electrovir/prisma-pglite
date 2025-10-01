@@ -1,4 +1,4 @@
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '../generated/client.js';
 import {createPgliteAdapter} from '../index.js';
 
 const prismaClient = new PrismaClient({

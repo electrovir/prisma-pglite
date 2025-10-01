@@ -12,5 +12,5 @@ graphics/
 node_modules/
 tsconfig.tsbuildinfo
 
-test-files/migrations
-prisma
+test-files/migrations/
+src/generated/

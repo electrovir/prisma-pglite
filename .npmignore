@@ -22,3 +22,5 @@ prettier.config.mjs
 test-files/
 todo.md
 tsconfig.*
+
+src/generated/

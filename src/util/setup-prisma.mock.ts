@@ -1,11 +1,13 @@
-import {prisma} from '@augment-vir/node';
+import {prismaApi} from 'prisma-vir';
 import {mockPrismaSchema} from './file-paths.mock.js';
 
 export async function setupPrisma() {
-    await prisma.client.generate(mockPrismaSchema);
+    await prismaApi.client.generate({
+        schemaPath: mockPrismaSchema,
+    });
 
     /* node:coverage ignore next 1: dynamic imports do not have branches */
-    const {PrismaClient} = await import('@prisma/client');
+    const {PrismaClient} = await import('../generated/client.js');
 
     return PrismaClient;
 }

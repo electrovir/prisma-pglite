@@ -9,3 +9,6 @@
 **/package-lock.json
 **/tsconfig.tsbuildinfo
 /Icon?
+
+src/generated/
+test-files/migrations/

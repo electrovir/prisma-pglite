@@ -260,17 +260,13 @@ function normalize_array<T>(element_normalizer: (string: string) => T): (string:
     return (str) => parseArray(str, element_normalizer);
 }
 
-/***/
 /* Number-related data-types  */
-/***/
 
 function normalize_numeric(numeric: string): string {
     return numeric;
 }
 
-/***/
 /* Time-related data-types  */
-/***/
 
 function normalize_date(date: string): string {
     return date;
@@ -297,17 +293,14 @@ function normalize_timez(time: string): string {
     // in quaint. See quaint/src/connector/postgres/conversion.rs
     return time.split('+')[0] as string;
 }
-/***/
+
 /* Money handling */
-/***/
 
 function normalize_money(money: string): string {
     return money.slice(1);
 }
 
-/***/
 /* JSON handling */
-/***/
 
 /**
  * We hand off JSON handling entirely to engines, so we keep it stringified here. This function
@@ -317,9 +310,7 @@ function toJson(json: string): unknown {
     return json;
 }
 
-/***/
 /* Binary data handling */
-/***/
 
 /**
  * TODO:

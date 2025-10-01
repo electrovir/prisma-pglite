@@ -36,7 +36,7 @@ npm i prisma-pglite
     <!-- example-link: src/examples/basic-adapter.example.ts -->
 
     ```TypeScript
-    import {PrismaClient} from '@prisma/client';
+    import {PrismaClient} from '../generated/client.js';
     import {createPgliteAdapter} from 'prisma-pglite';
 
     const prismaClient = new PrismaClient({
@@ -110,8 +110,8 @@ Use this when instantiating your `PrismaClient` instance to connect to or create
 <!-- example-link: src/examples/adapter.example.ts -->
 
 ```TypeScript
-import {PrismaClient} from '@prisma/client';
 import {join} from 'node:path';
+import {PrismaClient} from '../generated/client.js';
 import {createPgliteAdapter} from 'prisma-pglite';
 
 const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
@@ -154,8 +154,8 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
     <!-- example-link: src/examples/customized-adapter.example.ts -->
 
     ```TypeScript
-    import {PrismaClient} from '@prisma/client';
     import {join} from 'node:path';
+    import {PrismaClient} from '../generated/client.js';
     import {createPgliteAdapter} from 'prisma-pglite';
 
     const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
@@ -163,7 +163,7 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
     const prismaClient = new PrismaClient({
         adapter: await createPgliteAdapter({
             schemaFilePath: mySchemaPath,
-            pgliteDirPath: join('.dev', 'pglite'),
+            dbParentDirPath: join('.dev', 'pglite'),
         }),
     });
     ```
@@ -173,8 +173,8 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
 
     ```TypeScript
     import {describe, it} from '@augment-vir/test';
-    import {PrismaClient} from '@prisma/client';
     import {join} from 'node:path';
+    import {PrismaClient} from '../generated/client.js';
     import {createPgliteAdapter} from 'prisma-pglite';
 
     const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
@@ -184,7 +184,7 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
             const prismaClient = new PrismaClient({
                 adapter: await createPgliteAdapter({
                     schemaFilePath: mySchemaPath,
-                    pgliteDirPath: join('.dev', 'pglite'),
+                    dbParentDirPath: join('.dev', 'pglite'),
                     test: testContext,
                 }),
             });
