@@ -1,7 +1,9 @@
+import {rm} from 'node:fs/promises';
 import {prismaApi} from 'prisma-vir';
-import {mockPrismaSchema} from './file-paths.mock.js';
+import {generatedOutputDirPath, mockPrismaSchema} from './file-paths.mock.js';
 
 export async function setupPrisma() {
+    await rm(generatedOutputDirPath, {force: true, recursive: true});
     await prismaApi.client.generate({
         schemaPath: mockPrismaSchema,
     });
