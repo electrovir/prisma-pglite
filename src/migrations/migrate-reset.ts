@@ -1,7 +1,12 @@
-import {log, type PartialWithUndefined, type RequiredAndNotNull} from '@augment-vir/common';
-import {mkdir, rm} from 'node:fs/promises';
+import {type PartialWithUndefined, type RequiredAndNotNull} from '@augment-vir/common';
+import {existsSync} from 'node:fs';
+import {mkdir, readdir, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {getDefaultDbParentDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
+import {
+    getDefaultDbParentDirPath,
+    getDefaultMigrationsDirPath,
+    getDefaultSchemaPath,
+} from '../util/default-paths.js';
 import {generateInitSql} from '../util/sql-init.js';
 
 /**
@@ -11,12 +16,12 @@ import {generateInitSql} from '../util/sql-init.js';
  */
 export type ResetPgliteDatabaseParams = PartialWithUndefined<{
     /**
-     * Path to your Prisma schema file. If this is not provided, it will be deduced from your cwd.
+     * Path to the directory containing your Prisma migration folders. Each migration folder should
+     * contain a `migration.sql` file.
      *
-     * @default
-     * join(process.cwd(), 'prisma', 'schema.prisma')
+     * @default join(process.cwd(), 'prisma', 'migrations')
      */
-    schemaFilePath: string;
+    migrationsDirPath: string;
     /**
      * Path to the PGlite database directory.
      *
@@ -26,11 +31,11 @@ export type ResetPgliteDatabaseParams = PartialWithUndefined<{
      */
     pgliteDatabaseDirPath: string;
     /**
-     * Enable logging.
+     * Path to the Prisma schema file. Used as a fallback when no migrations exist.
      *
-     * @default false
+     * @default join(process.cwd(), 'prisma', 'schema.prisma')
      */
-    enableLogs: boolean;
+    schemaFilePath: string;
 }>;
 
 /**
@@ -44,28 +49,46 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
 
     /* node:coverage ignore next 1: dynamic imports are not a branch */
     const pgliteImport = import('@electric-sql/pglite');
-    const initSql = generateInitSql(params.schemaFilePath, params.enableLogs);
+    const initSql = await generateInitSql(params.schemaFilePath);
 
     await rm(params.pgliteDatabaseDirPath, {force: true, recursive: true});
     await mkdir(params.pgliteDatabaseDirPath, {recursive: true});
 
     const pglite = new (await pgliteImport).PGlite(params.pgliteDatabaseDirPath);
-    await pglite.exec(await initSql);
 
-    log.if(params.enableLogs).success(
-        `PGlite database reset at:\n'${params.pgliteDatabaseDirPath}'`,
-    );
+    /* node:coverage disable */
+    const migrationDirs = existsSync(params.migrationsDirPath)
+        ? (await readdir(params.migrationsDirPath, {withFileTypes: true}))
+              .filter((entry) => entry.isDirectory())
+              .map((entry) => entry.name)
+              .sort()
+        : [];
 
-    return await initSql;
+    if (migrationDirs.length) {
+        for (const migrationDir of migrationDirs) {
+            const migrationSqlPath = join(params.migrationsDirPath, migrationDir, 'migration.sql');
+            if (existsSync(migrationSqlPath)) {
+                const sql = await readFile(migrationSqlPath, 'utf-8');
+                await pglite.exec(sql);
+            }
+        }
+    } else {
+        await pglite.exec(initSql);
+    }
+    /* node:coverage enable */
+
+    return pglite;
 }
 
 function finalizeResetParams(
     params: Readonly<ResetPgliteDatabaseParams>,
 ): RequiredAndNotNull<ResetPgliteDatabaseParams> {
+    const schemaFilePath = params.schemaFilePath || getDefaultSchemaPath();
+
     return {
-        schemaFilePath: params.schemaFilePath || getDefaultSchemaPath(),
         pgliteDatabaseDirPath:
             params.pgliteDatabaseDirPath || join(getDefaultDbParentDirPath(), 'dev'),
-        enableLogs: !!params.enableLogs,
+        migrationsDirPath: params.migrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath),
+        schemaFilePath,
     };
 }

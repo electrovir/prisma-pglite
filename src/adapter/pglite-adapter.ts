@@ -3,10 +3,9 @@ import {log, type PartialWithUndefined} from '@augment-vir/common';
 import {extractTestNameAsDir, type UniversalTestContext} from '@augment-vir/test';
 import {type PGlite} from '@electric-sql/pglite';
 import {existsSync} from 'node:fs';
-import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {getDefaultDbParentDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
-import {generateInitSql} from '../util/sql-init.js';
+import {resetPgliteDatabase} from '../migrations/migrate-reset.js';
+import {getDefaultDbParentDirPath} from '../util/default-paths.js';
 import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
 
 /**
@@ -15,6 +14,19 @@ import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
  * @category Internal
  */
 export type PgliteAdapterParams = PartialWithUndefined<{
+    /**
+     * Path to the directory containing your Prisma migration folders. Each migration folder should
+     * contain a `migration.sql` file.
+     *
+     * @default join(process.cwd(), 'prisma', 'migrations')
+     */
+    migrationsDirPath: string;
+    /**
+     * Path to the Prisma schema file. Used as a fallback when no migrations exist.
+     *
+     * @default join(process.cwd(), 'prisma', 'schema.prisma')
+     */
+    schemaFilePath: string;
     /**
      * This is the path to your PGlite parent directory. Inside of this directory will be created
      * the actual PGlite directories for each database name..
@@ -48,19 +60,6 @@ export type PgliteAdapterParams = PartialWithUndefined<{
      * @default undefined
      */
     dbDirName: string | UniversalTestContext;
-    /**
-     * Path to the `schema.prisma` file. This is necessary in order to generate the SQL init script
-     * necessary for PGlite to initialize your database.
-     *
-     * @default join(process.cwd(), 'prisma', 'schema.prisma')
-     */
-    schemaFilePath: string;
-    /**
-     * Enable logging.
-     *
-     * @default false
-     */
-    enableLogs: boolean;
     /**
      * If set to true, any existing database at the database path will be deleted before setting up
      * a new fresh instance.
@@ -118,6 +117,7 @@ export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
  * const prismaClient = new PrismaClient({
  *     adapter: await createPgliteAdapter({
  *         schemaFilePath,
+ *         migrationsDirPath,
  *     }),
  * });
  * ```
@@ -154,25 +154,19 @@ export async function createPgliteAdapter(
 
         const databaseDirPath = params.directDatabaseDirPath || join(...pathParts);
 
-        if (params.resetDatabase) {
-            await rm(databaseDirPath, {recursive: true, force: true});
-        }
-        const needsInit = !existsSync(databaseDirPath);
-        await mkdir(databaseDirPath, {recursive: true});
+        const needsReset = params.resetDatabase || !existsSync(databaseDirPath);
 
-        const pglite = new PGlite(databaseDirPath);
+        const pglite = needsReset
+            ? await resetPgliteDatabase({
+                  migrationsDirPath: params.migrationsDirPath,
+                  pgliteDatabaseDirPath: databaseDirPath,
+                  schemaFilePath: params.schemaFilePath,
+              })
+            : new PGlite(databaseDirPath);
 
-        if (needsInit) {
-            await pglite.exec(
-                await generateInitSql(
-                    params.schemaFilePath || getDefaultSchemaPath(),
-                    !!params.enableLogs,
-                ),
-            );
-        }
         return new PrismaPgliteAdapter(pglite, {
             databaseDirPath,
-            wasJustInitialized: needsInit,
+            wasJustInitialized: needsReset,
         });
     } catch (error) {
         log.error(error);

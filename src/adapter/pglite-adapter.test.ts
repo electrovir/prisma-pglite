@@ -3,7 +3,11 @@ import {describe, it} from '@augment-vir/test';
 import {existsSync} from 'node:fs';
 import {rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {mockPrismaSchema, notCommittedDirPath} from '../util/file-paths.mock.js';
+import {
+    mockMigrationsDirPath,
+    mockPrismaSchema,
+    notCommittedDirPath,
+} from '../util/file-paths.mock.js';
 import {setupPrisma} from '../util/setup-prisma.mock.js';
 import {createPgliteAdapter} from './pglite-adapter.js';
 import {verifyPrismaClient} from './pglite-adapter.mock.js';
@@ -17,6 +21,7 @@ describe(createPgliteAdapter.name, () => {
                 dbDirName: testContext,
                 resetDatabase: true,
                 schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
             }),
         });
 
@@ -30,6 +35,7 @@ describe(createPgliteAdapter.name, () => {
                 dbDirName: 'my name',
                 resetDatabase: true,
                 schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
             }),
         });
 
@@ -42,6 +48,7 @@ describe(createPgliteAdapter.name, () => {
             dbDirName: testContext,
             resetDatabase: true,
             schemaFilePath: mockPrismaSchema,
+            migrationsDirPath: mockMigrationsDirPath,
             databaseName: 'db1',
         });
 
@@ -73,6 +80,7 @@ describe(createPgliteAdapter.name, () => {
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
                 schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
                 dbParentDirPath: customDbParentDirPath,
             }),
         });
@@ -85,6 +93,7 @@ describe(createPgliteAdapter.name, () => {
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
                 schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
                 dbParentDirPath: customDbParentDirPath,
                 resetDatabase: true,
             }),

@@ -12,7 +12,7 @@ import {getNowInUtcTimezone} from 'date-vir';
 import {existsSync} from 'node:fs';
 import {mkdir, readdir, readFile, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
-import {getDefaultSchemaPath} from '../util/default-paths.js';
+import {getDefaultMigrationsDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
 
 /**
  * Params for {@link createPgliteMigration}
@@ -63,13 +63,15 @@ export const defaultSnapshotFileName = 'source.snapshot';
 function finalizeMigrationParams(
     params: Readonly<PgliteMigrationParams>,
 ): ResolvedPgliteMigrationParams {
+    /* node:coverage disable */
     const schemaFilePath: string =
         params.schemaFilePath ||
         (params.migrationsDirPath
             ? join(dirname(params.migrationsDirPath), 'schema.prisma')
             : getDefaultSchemaPath());
     const migrationsDirPath: string =
-        params.migrationsDirPath || join(dirname(schemaFilePath), 'migrations');
+        params.migrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath);
+    /* node:coverage enable */
 
     assert.isTruthy(migrationsDirPath, 'Unable to determine migrationsDirPath.');
     assert.isTruthy(schemaFilePath, 'Unable to determine schemaFilePath.');

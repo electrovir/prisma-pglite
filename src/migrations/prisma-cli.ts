@@ -2,6 +2,7 @@ import {check} from '@augment-vir/assert';
 import {log} from '@augment-vir/common';
 import {askQuestion, extractRelevantArgs, runShellCommand} from '@augment-vir/node';
 import minimist from 'minimist';
+import {dirname, join} from 'node:path';
 import {createPgliteMigration} from './migrate-dev.js';
 import {resetPgliteDatabase} from './migrate-reset.js';
 
@@ -38,9 +39,8 @@ export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<str
         const result = await createPgliteMigration({
             schemaFilePath: schemaPath,
             migrationName: parsedArgs.name || (await askQuestion('Please enter a migration name:')),
-            enableLogs,
             snapshotFileName: parsedArgs.snapshot,
-            migrationsDirPath: parsedArgs.migrations,
+            migrationsDirPath: parsedArgs.migrations || join(dirname(schemaPath), 'migrations'),
         });
         if (!result) {
             console.info('No changes detected.');
@@ -49,9 +49,9 @@ export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<str
     } else if (cliArgs[0] === 'migrate' && cliArgs[1] === 'reset') {
         const databasePath = parsedArgs.database;
         return await resetPgliteDatabase({
-            enableLogs,
             schemaFilePath: schemaPath,
             pgliteDatabaseDirPath: databasePath,
+            migrationsDirPath: parsedArgs.migrations,
         });
     } else {
         const extraFlags =

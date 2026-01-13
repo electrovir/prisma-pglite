@@ -1,6 +1,6 @@
 import {findAncestor} from '@augment-vir/node';
 import {existsSync} from 'node:fs';
-import {join} from 'node:path';
+import {dirname, join} from 'node:path';
 
 /**
  * Generate a default PGlite directory for storing dev and test databases.
@@ -24,4 +24,13 @@ export function getDefaultDbParentDirPath() {
  */
 export function getDefaultSchemaPath() {
     return join(process.cwd(), 'prisma', 'schema.prisma');
+}
+
+/**
+ * Generate a default migrations directory path from the current directory.
+ *
+ * @category Internal
+ */
+export function getDefaultMigrationsDirPath(schemaFilePath: string) {
+    return join(dirname(schemaFilePath), 'migrations');
 }

@@ -12,7 +12,11 @@ import {
     migrationLockFileContents,
     migrationLockFileName,
 } from './migrations/migrate-dev.js';
-import {mockPrismaSchema, notCommittedDirPath} from './util/file-paths.mock.js';
+import {
+    mockMigrationsDirPath,
+    mockPrismaSchema,
+    notCommittedDirPath,
+} from './util/file-paths.mock.js';
 import {setupPrisma} from './util/setup-prisma.mock.js';
 
 async function runCli(args: ReadonlyArray<string>, options?: {hookUpToConsole?: boolean}) {
@@ -238,6 +242,7 @@ describe('cli', () => {
         const prismaClient = new (await setupPrisma())({
             adapter: await createPgliteAdapter({
                 schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
                 directDatabaseDirPath: databaseDirPath,
             }),
         });

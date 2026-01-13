@@ -1,4 +1,4 @@
-import {log, wrapString} from '@augment-vir/common';
+import {wrapString} from '@augment-vir/common';
 import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
 
 /**
@@ -13,10 +13,7 @@ import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
  * @returns The raw SQL to be executed
  * @see https://github.com/lucasthevenet/pglite-utils/issues/8#issuecomment-2147944548
  */
-export async function generateInitSql(
-    schemaFilePath: string,
-    enableLogs: boolean,
-): Promise<string> {
+export async function generateInitSql(schemaFilePath: string): Promise<string> {
     const diffCommand = [
         'prisma',
         'migrate',
@@ -26,13 +23,6 @@ export async function generateInitSql(
         wrapString({value: interpolationSafeWindowsPath(schemaFilePath), wrapper: "'"}),
         '--script',
     ].join(' ');
-
-    log.if(enableLogs).faint(
-        [
-            '>',
-            diffCommand,
-        ].join(' '),
-    );
 
     const {stdout} = await runShellCommand(diffCommand, {
         rejectOnError: true,
