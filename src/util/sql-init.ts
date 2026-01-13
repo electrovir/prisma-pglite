@@ -15,7 +15,7 @@ import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
  */
 export async function generateInitSql(
     schemaFilePath: string,
-    silent: boolean = false,
+    enableLogs: boolean,
 ): Promise<string> {
     const diffCommand = [
         'prisma',
@@ -27,7 +27,7 @@ export async function generateInitSql(
         '--script',
     ].join(' ');
 
-    log.if(!silent).faint(
+    log.if(enableLogs).faint(
         [
             '>',
             diffCommand,

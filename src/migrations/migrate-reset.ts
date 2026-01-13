@@ -26,11 +26,11 @@ export type ResetPgliteDatabaseParams = PartialWithUndefined<{
      */
     pgliteDatabaseDirPath: string;
     /**
-     * Silence all logging.
+     * Enable logging.
      *
      * @default false
      */
-    silent: boolean;
+    enableLogs: boolean;
 }>;
 
 /**
@@ -44,7 +44,7 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
 
     /* node:coverage ignore next 1: dynamic imports are not a branch */
     const pgliteImport = import('@electric-sql/pglite');
-    const initSql = generateInitSql(params.schemaFilePath, params.silent);
+    const initSql = generateInitSql(params.schemaFilePath, params.enableLogs);
 
     await rm(params.pgliteDatabaseDirPath, {force: true, recursive: true});
     await mkdir(params.pgliteDatabaseDirPath, {recursive: true});
@@ -52,7 +52,9 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
     const pglite = new (await pgliteImport).PGlite(params.pgliteDatabaseDirPath);
     await pglite.exec(await initSql);
 
-    log.if(!params.silent).success(`PGlite database reset at:\n'${params.pgliteDatabaseDirPath}'`);
+    log.if(params.enableLogs).success(
+        `PGlite database reset at:\n'${params.pgliteDatabaseDirPath}'`,
+    );
 
     return await initSql;
 }
@@ -64,6 +66,6 @@ function finalizeResetParams(
         schemaFilePath: params.schemaFilePath || getDefaultSchemaPath(),
         pgliteDatabaseDirPath:
             params.pgliteDatabaseDirPath || join(getDefaultDbParentDirPath(), 'dev'),
-        silent: !!params.silent,
+        enableLogs: !!params.enableLogs,
     };
 }

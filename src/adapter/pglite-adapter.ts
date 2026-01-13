@@ -56,11 +56,11 @@ export type PgliteAdapterParams = PartialWithUndefined<{
      */
     schemaFilePath: string;
     /**
-     * Silence all logging.
+     * Enable logging.
      *
      * @default false
      */
-    silent: boolean;
+    enableLogs: boolean;
     /**
      * If set to true, any existing database at the database path will be deleted before setting up
      * a new fresh instance.
@@ -166,7 +166,7 @@ export async function createPgliteAdapter(
             await pglite.exec(
                 await generateInitSql(
                     params.schemaFilePath || getDefaultSchemaPath(),
-                    params.silent,
+                    !!params.enableLogs,
                 ),
             );
         }
@@ -175,7 +175,7 @@ export async function createPgliteAdapter(
             wasJustInitialized: needsInit,
         });
     } catch (error) {
-        log.if(!params.silent).error(error);
+        log.error(error);
         /** Add our own error message because PGlite's error messages are really cryptic. */
         throw new Error('Failed to initialize PGlite Prisma adapter', {cause: error});
     }

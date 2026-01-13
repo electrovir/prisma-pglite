@@ -30,22 +30,26 @@ export function parseRawArgs(
  */
 export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<string, string>) {
     const parsedArgs = minimist([...cliArgs]);
-    const silent = !!parsedArgs.silent;
+    const enableLogs = !!parsedArgs.enableLogs;
 
     const schemaPath = parsedArgs.schema;
 
     if (cliArgs[0] === 'migrate' && cliArgs[1] === 'dev') {
-        return await createPgliteMigration({
+        const result = await createPgliteMigration({
             schemaFilePath: schemaPath,
             migrationName: parsedArgs.name || (await askQuestion('Please enter a migration name:')),
-            silent,
+            enableLogs,
             snapshotFileName: parsedArgs.snapshot,
             migrationsDirPath: parsedArgs.migrations,
         });
+        if (!result) {
+            console.info('No changes detected.');
+        }
+        return result;
     } else if (cliArgs[0] === 'migrate' && cliArgs[1] === 'reset') {
         const databasePath = parsedArgs.database;
         return await resetPgliteDatabase({
-            silent,
+            enableLogs,
             schemaFilePath: schemaPath,
             pgliteDatabaseDirPath: databasePath,
         });
@@ -61,7 +65,7 @@ export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<str
             ...extraFlags,
         ].join(' ');
 
-        log.if(!silent).faint(
+        log.if(enableLogs).faint(
             [
                 '>',
                 fullCommand,

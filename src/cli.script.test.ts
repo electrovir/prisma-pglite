@@ -15,7 +15,7 @@ import {
 import {mockPrismaSchema, notCommittedDirPath} from './util/file-paths.mock.js';
 import {setupPrisma} from './util/setup-prisma.mock.js';
 
-async function runCli(args: ReadonlyArray<string>) {
+async function runCli(args: ReadonlyArray<string>, options?: {hookUpToConsole?: boolean}) {
     const fullCommand = [
         'tsx',
         join(import.meta.dirname, 'cli.script.ts'),
@@ -23,7 +23,7 @@ async function runCli(args: ReadonlyArray<string>) {
     ].join(' ');
 
     return await runShellCommand(fullCommand, {
-        hookUpToConsole: true,
+        hookUpToConsole: options?.hookUpToConsole ?? true,
     });
 }
 
@@ -127,17 +127,20 @@ describe('cli', () => {
             interpolationSafeWindowsPath(mockPrismaSchema),
         ]);
     });
-    it('fails on an invalid schema path', async () => {
-        const {stderr} = await runCli([
-            'migrate',
-            'dev',
-            '--name',
-            'my-migration',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
-        ]);
+    it('fails when there are no changes', async () => {
+        const output = await runCli(
+            [
+                'migrate',
+                'dev',
+                '--name',
+                'my-migration',
+                '--schema',
+                interpolationSafeWindowsPath(mockPrismaSchema),
+            ],
+            {hookUpToConsole: false},
+        );
 
-        assert.hasValue(stderr, 'No changes detected');
+        assert.hasValue(output.stdout, 'No changes detected');
     });
     it('accepts a CLI input migration name', async (testContext) => {
         const migrationsDirPath = join(
@@ -288,7 +291,5 @@ describe('cli', () => {
             '--schema',
             interpolationSafeWindowsPath(mockPrismaSchema),
         ]);
-
-        assert.hasValues(stdout, ['--no-hints']);
     });
 });

@@ -2,7 +2,7 @@ import {assert} from '@augment-vir/assert';
 import {
     camelCaseToKebabCase,
     collapseWhiteSpace,
-    log as logImport,
+    log,
     wrapString,
     type PartialWithUndefined,
     type RequiredAndNotNull,
@@ -41,11 +41,11 @@ export type PgliteMigrationParams = PartialWithUndefined<{
      */
     snapshotFileName: string;
     /**
-     * Silence all logs.
+     * Enable logging.
      *
      * @default false
      */
-    silent: boolean;
+    enableLogs: boolean;
 }> & {
     /** The name of the new migration, if one is needed. */
     migrationName: string;
@@ -79,12 +79,11 @@ function finalizeMigrationParams(
     );
 
     const snapshotFileName = params.snapshotFileName || defaultSnapshotFileName;
-    const silent = !!params.silent;
 
     return {
         migrationsDirPath,
         schemaFilePath,
-        silent,
+        enableLogs: !!params.enableLogs,
         snapshotFileName,
         migrationName: sanitizeMigrationName(params.migrationName),
     };
@@ -127,9 +126,8 @@ export const migrationLockFileContents = [
 export async function createPgliteMigration(
     params: Readonly<PgliteMigrationParams>,
 ): Promise<PgliteMigration | undefined> {
-    const {migrationsDirPath, schemaFilePath, silent, snapshotFileName, migrationName} =
+    const {migrationsDirPath, schemaFilePath, enableLogs, snapshotFileName, migrationName} =
         finalizeMigrationParams(params);
-    const log = logImport.if(!silent);
 
     const now = getNowInUtcTimezone();
 
@@ -166,7 +164,7 @@ export async function createPgliteMigration(
         '--exit-code',
     ].join(' ');
 
-    log.faint(
+    log.if(enableLogs).faint(
         [
             '>',
             diffCommand,
