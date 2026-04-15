@@ -41,7 +41,7 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
     public readonly provider = 'postgres';
     public readonly adapterName = adapterName;
 
-    constructor(protected readonly client: ClientT) {}
+    constructor(public readonly pgliteClient: ClientT) {}
 
     public async queryRaw(query: SqlQuery): Promise<SqlResultSet> {
         const tag = '[js::query_raw]';
@@ -87,7 +87,7 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
         const {sql, args: values} = query;
 
         try {
-            const result = await this.client.query(sql, fixArrayBufferValues(values), {
+            const result = await this.pgliteClient.query(sql, fixArrayBufferValues(values), {
                 rowMode: 'array',
                 parsers: customParsers,
             });
@@ -133,7 +133,7 @@ class PGliteTransaction extends PGliteQueryable<pglite.Transaction> implements T
 
     public async rollback(): Promise<void> {
         debug('[js::rollback]');
-        await this.client.rollback();
+        await this.pgliteClient.rollback();
         this.txDeferred.resolve();
         return await this.txResultPromise;
     }
@@ -153,7 +153,7 @@ class PrismaPGliteAdapter extends PGliteQueryable<pglite.PGlite> implements SqlD
 
     public async executeScript(script: string): Promise<void> {
         try {
-            await this.client.exec(script);
+            await this.pgliteClient.exec(script);
         } catch (e) {
             this.onError(e);
         }
@@ -178,11 +178,11 @@ class PrismaPGliteAdapter extends PGliteQueryable<pglite.PGlite> implements SqlD
         const tag = '[js::startTransaction]';
         debug('%s options: %O', tag, options);
         if (isolationLevel) {
-            await this.client
+            await this.pgliteClient
                 .exec(`SET TRANSACTION ISOLATION LEVEL ${isolationLevel}`)
                 .catch((error: unknown) => this.onError(error));
         }
-        return this.startTransactionInner(this.client, options);
+        return this.startTransactionInner(this.pgliteClient, options);
     }
 
     public async startTransactionInner(
@@ -223,11 +223,11 @@ export class PrismaPGliteAdapterFactory implements SqlMigrationAwareDriverAdapte
     /** Required for Prisma. */
     public readonly adapterName = adapterName;
 
-    constructor(private readonly client: pglite.PGlite) {}
+    constructor(public readonly pgliteClient: pglite.PGlite) {}
 
     /** Instantiate a driver adapter. Required for Prisma. */
     public connect(): Promise<SqlDriverAdapter> {
-        return Promise.resolve(new PrismaPGliteAdapter(this.client));
+        return Promise.resolve(new PrismaPGliteAdapter(this.pgliteClient));
     }
 
     /** Required for Prisma. */
