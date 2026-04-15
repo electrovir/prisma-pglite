@@ -51,14 +51,23 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
     const pgliteImport = import('@electric-sql/pglite');
     const initSql = await generateInitSql(params.schemaFilePath);
 
-    await rm(params.pgliteDatabaseDirPath, {force: true, recursive: true});
-    await mkdir(params.pgliteDatabaseDirPath, {recursive: true});
+    await rm(params.pgliteDatabaseDirPath, {
+        force: true,
+        recursive: true,
+    });
+    await mkdir(params.pgliteDatabaseDirPath, {
+        recursive: true,
+    });
 
     const pglite = new (await pgliteImport).PGlite(params.pgliteDatabaseDirPath);
 
     /* node:coverage disable */
     const migrationDirs = existsSync(params.migrationsDirPath)
-        ? (await readdir(params.migrationsDirPath, {withFileTypes: true}))
+        ? (
+              await readdir(params.migrationsDirPath, {
+                  withFileTypes: true,
+              })
+          )
               .filter((entry) => entry.isDirectory())
               .map((entry) => entry.name)
               .sort()
@@ -76,6 +85,12 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
         await pglite.exec(initSql);
     }
     /* node:coverage enable */
+
+    /**
+     * PGlite's WASM PostgreSQL startup sets process.exitCode as a side effect. Reset it after all
+     * PGlite operations complete so it doesn't cause Node.js test runner failures.
+     */
+    process.exitCode = undefined;
 
     return pglite;
 }

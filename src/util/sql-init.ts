@@ -1,4 +1,4 @@
-import {wrapString} from '@augment-vir/common';
+import {combineErrorMessages, wrapString} from '@augment-vir/common';
 import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
 
 /**
@@ -20,13 +20,25 @@ export async function generateInitSql(schemaFilePath: string): Promise<string> {
         'diff',
         '--from-empty',
         '--to-schema-datamodel',
-        wrapString({value: interpolationSafeWindowsPath(schemaFilePath), wrapper: "'"}),
+        wrapString({
+            value: interpolationSafeWindowsPath(schemaFilePath),
+            wrapper: "'",
+        }),
         '--script',
     ].join(' ');
 
-    const {stdout} = await runShellCommand(diffCommand, {
-        rejectOnError: true,
+    const result = await runShellCommand(diffCommand, {
+        rejectOnError: false,
     });
 
-    return stdout;
+    if (result.exitCode !== 0) {
+        throw new Error(
+            combineErrorMessages(
+                `prisma migrate diff failed with exit code ${result.exitCode}.`,
+                result.stderr,
+            ),
+        );
+    }
+
+    return result.stdout;
 }

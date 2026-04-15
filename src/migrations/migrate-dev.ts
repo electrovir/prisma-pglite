@@ -161,7 +161,10 @@ export async function createPgliteMigration(
         'diff',
         ...fromArgs,
         '--to-schema-datamodel',
-        wrapString({value: interpolationSafeWindowsPath(schemaFilePath), wrapper: "'"}),
+        wrapString({
+            value: interpolationSafeWindowsPath(schemaFilePath),
+            wrapper: "'",
+        }),
         '--script',
         '--exit-code',
     ].join(' ');
@@ -194,7 +197,9 @@ export async function createPgliteMigration(
 
     const newMigrationDirPath = join(migrationsDirPath, migrationDirName);
 
-    await mkdir(newMigrationDirPath, {recursive: true});
+    await mkdir(newMigrationDirPath, {
+        recursive: true,
+    });
     const migrationOutputPath = join(newMigrationDirPath, 'migration.sql');
     await writeFile(migrationOutputPath, output.stdout);
     await writeFile(
@@ -245,9 +250,11 @@ export async function findLatestMigrationPath(
         return undefined;
     }
 
-    const migrationDirs = (await readdir(migrationsDirPath, {withFileTypes: true})).filter(
-        (entry) => entry.isDirectory(),
-    );
+    const migrationDirs = (
+        await readdir(migrationsDirPath, {
+            withFileTypes: true,
+        })
+    ).filter((entry) => entry.isDirectory());
 
     const latestMigrationDir = migrationDirs.toSorted((a, b) => b.name.localeCompare(a.name))[0];
 

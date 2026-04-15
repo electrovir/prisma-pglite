@@ -73,7 +73,10 @@ describe(createPgliteAdapter.name, () => {
     it('will reset a custom pglite dir with default dev', async () => {
         const PrismaClient = await setupPrisma();
         const customDbParentDirPath = join(notCommittedDirPath, 'tests', 'custom-pglite');
-        await rm(customDbParentDirPath, {recursive: true, force: true});
+        await rm(customDbParentDirPath, {
+            recursive: true,
+            force: true,
+        });
 
         const prismaClient = new PrismaClient({
             adapter: await createPgliteAdapter({

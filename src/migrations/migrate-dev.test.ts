@@ -18,7 +18,10 @@ import {
 
 describe(createPgliteMigration.name, () => {
     it('creates a migration', async () => {
-        await rm(mockMigrationsDirPath, {recursive: true, force: true});
+        await rm(mockMigrationsDirPath, {
+            recursive: true,
+            force: true,
+        });
         assert.isDefined(
             await createPgliteMigration({
                 migrationName: 'test migration',
@@ -76,8 +79,13 @@ describe(findLatestMigrationPath.name, () => {
             'migrations',
         );
 
-        await rm(emptyMigrationsFolder, {recursive: true, force: true});
-        await mkdir(emptyMigrationsFolder, {recursive: true});
+        await rm(emptyMigrationsFolder, {
+            recursive: true,
+            force: true,
+        });
+        await mkdir(emptyMigrationsFolder, {
+            recursive: true,
+        });
 
         assert.isUndefined(await findLatestMigrationPath(emptyMigrationsFolder));
     });

@@ -3,6 +3,11 @@ import {describe, it} from '@augment-vir/test';
 
 describe('index.ts', () => {
     it('can be imported without error', async () => {
-        await wrapPromiseInTimeout({seconds: 10}, import('./index.js'));
+        await wrapPromiseInTimeout(
+            {
+                seconds: 10,
+            },
+            import('./index.js'),
+        );
     });
 });

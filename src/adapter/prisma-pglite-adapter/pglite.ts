@@ -9,7 +9,7 @@
 /* node:coverage disable */
 
 import * as pglite from '@electric-sql/pglite';
-import type {PGliteWorker} from '@electric-sql/pglite/dist/worker/index.js';
+import type {PGliteWorker} from '@electric-sql/pglite/worker';
 import type {
     ColumnType,
     ConnectionInfo,
@@ -233,7 +233,11 @@ export class PrismaPGliteAdapterFactory implements SqlMigrationAwareDriverAdapte
     /** Required for Prisma. */
     public connectToShadowDb(): Promise<SqlDriverAdapter> {
         return Promise.resolve(
-            new PrismaPGliteAdapter(new pglite.PGlite({dataDir: 'memory://shadow'})),
+            new PrismaPGliteAdapter(
+                new pglite.PGlite({
+                    dataDir: 'memory://shadow',
+                }),
+            ),
         );
     }
 }

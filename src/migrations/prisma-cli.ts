@@ -48,11 +48,13 @@ export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<str
         return result;
     } else if (cliArgs[0] === 'migrate' && cliArgs[1] === 'reset') {
         const databasePath = parsedArgs.database;
-        return await resetPgliteDatabase({
+        const pglite = await resetPgliteDatabase({
             schemaFilePath: schemaPath,
             pgliteDatabaseDirPath: databasePath,
             migrationsDirPath: parsedArgs.migrations,
         });
+        await pglite.close();
+        return pglite;
     } else {
         const extraFlags =
             check.startsWith(cliArgs, 'generate') && !cliArgs.includes('--no-hints')

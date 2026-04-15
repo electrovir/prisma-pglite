@@ -164,6 +164,13 @@ export async function createPgliteAdapter(
               })
             : new PGlite(databaseDirPath);
 
+        await pglite.waitReady;
+        /**
+         * PGlite's WASM PostgreSQL startup sets process.exitCode as a side effect. Reset it after
+         * initialization completes so it doesn't cause Node.js test runner failures.
+         */
+        process.exitCode = undefined;
+
         return new PrismaPgliteAdapter(pglite, {
             databaseDirPath,
             wasJustInitialized: needsReset,
@@ -171,6 +178,8 @@ export async function createPgliteAdapter(
     } catch (error) {
         log.error(error);
         /** Add our own error message because PGlite's error messages are really cryptic. */
-        throw new Error('Failed to initialize PGlite Prisma adapter', {cause: error});
+        throw new Error('Failed to initialize PGlite Prisma adapter', {
+            cause: error,
+        });
     }
 }

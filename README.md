@@ -81,7 +81,9 @@ All CLI commands are also accessible via the exported API:
     ```TypeScript
     import {createPgliteMigration} from 'prisma-pglite';
 
-    await createPgliteMigration({migrationName: 'my migration'});
+    await createPgliteMigration({
+        migrationName: 'my migration',
+    });
     ```
 
 -   `migrate reset`:

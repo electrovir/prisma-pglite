@@ -6,7 +6,7 @@
     "exclude": [
         "**/*.test.ts",
         "**/*.example.ts",
-        "src/generated"
+        "src/generated/**"
     ],
     "include": [
         "src/**/*.ts"

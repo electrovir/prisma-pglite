@@ -49,7 +49,10 @@ describe('cli', () => {
             'migrations',
         );
 
-        await rm(migrationsDirPath, {recursive: true, force: true});
+        await rm(migrationsDirPath, {
+            recursive: true,
+            force: true,
+        });
         assert.isFalse(existsSync(migrationsDirPath));
 
         await runCli([
@@ -72,7 +75,9 @@ describe('cli', () => {
             migrationLockFileContents,
         );
 
-        const migrationDirChildrenNames = await readdir(migrationsDirPath, {withFileTypes: true});
+        const migrationDirChildrenNames = await readdir(migrationsDirPath, {
+            withFileTypes: true,
+        });
 
         assert.isLengthExactly(migrationDirChildrenNames, 2);
 
@@ -141,7 +146,9 @@ describe('cli', () => {
                 '--schema',
                 interpolationSafeWindowsPath(mockPrismaSchema),
             ],
-            {hookUpToConsole: false},
+            {
+                hookUpToConsole: false,
+            },
         );
 
         assert.hasValue(output.stdout, 'No changes detected');
@@ -176,7 +183,9 @@ describe('cli', () => {
             rejectOnError: true,
         });
 
-        const migrationDirChildrenNames = await readdir(migrationsDirPath, {withFileTypes: true});
+        const migrationDirChildrenNames = await readdir(migrationsDirPath, {
+            withFileTypes: true,
+        });
 
         assert.isLengthExactly(migrationDirChildrenNames, 2);
 
@@ -195,7 +204,10 @@ describe('cli', () => {
             'migrations',
         );
 
-        await rm(migrationsDirPath, {recursive: true, force: true});
+        await rm(migrationsDirPath, {
+            recursive: true,
+            force: true,
+        });
         assert.isFalse(existsSync(migrationsDirPath));
 
         await runCli([
@@ -216,7 +228,9 @@ describe('cli', () => {
 
         assert.isTrue(existsSync(migrationsDirPath));
 
-        const migrationDirChildrenNames = await readdir(migrationsDirPath, {withFileTypes: true});
+        const migrationDirChildrenNames = await readdir(migrationsDirPath, {
+            withFileTypes: true,
+        });
         assert.isLengthExactly(migrationDirChildrenNames, 2);
         const newMigrationDirName = migrationDirChildrenNames.find((file) => {
             return file.isDirectory();
@@ -228,28 +242,31 @@ describe('cli', () => {
         );
     });
     it('resets a database', async (testContext) => {
-        const migrationsDirPath = join(
-            notCommittedDirPath,
-            'tests',
-            extractTestNameAsDir(testContext),
-            'migrations',
-        );
-        const databaseDirPath = join(dirname(migrationsDirPath), 'pglite');
+        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+        const databaseDirPath = join(testDirPath, 'pglite');
 
-        await rm(migrationsDirPath, {recursive: true, force: true});
-        assert.isFalse(existsSync(migrationsDirPath));
+        await rm(testDirPath, {
+            recursive: true,
+            force: true,
+        });
 
-        const prismaClient = new (await setupPrisma())({
-            adapter: await createPgliteAdapter({
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
-                directDatabaseDirPath: databaseDirPath,
-            }),
+        const PrismaClient = await setupPrisma();
+
+        const adapter = await createPgliteAdapter({
+            schemaFilePath: mockPrismaSchema,
+            migrationsDirPath: mockMigrationsDirPath,
+            directDatabaseDirPath: databaseDirPath,
+            resetDatabase: true,
+        });
+        const prismaClient = new PrismaClient({
+            adapter,
         });
 
         await verifyPrismaClient(prismaClient);
-
         assert.isAbove(await prismaClient.user.count(), 0);
+        await prismaClient.$disconnect();
+        await adapter.pgliteClient.close();
+        process.exitCode = undefined;
 
         await runCli([
             'migrate',
@@ -263,14 +280,23 @@ describe('cli', () => {
             }),
         ]);
 
-        assert.isAbove(await prismaClient.user.count(), 0);
+        const prismaClient2 = new PrismaClient({
+            adapter: await createPgliteAdapter({
+                schemaFilePath: mockPrismaSchema,
+                migrationsDirPath: mockMigrationsDirPath,
+                directDatabaseDirPath: databaseDirPath,
+            }),
+        });
 
-        await prismaClient.$disconnect();
+        assert.strictEquals(await prismaClient2.user.count(), 0);
+        await prismaClient2.$disconnect();
     });
     it('resets a database with default paths', async () => {
         const schemaPath = join('prisma', 'schema.prisma');
         try {
-            await mkdir(dirname(schemaPath), {recursive: true});
+            await mkdir(dirname(schemaPath), {
+                recursive: true,
+            });
             await writeFile(
                 schemaPath,
                 `
@@ -287,7 +313,10 @@ describe('cli', () => {
 
             assert.isEmpty(stderr);
         } finally {
-            await rm(dirname(schemaPath), {recursive: true, force: true});
+            await rm(dirname(schemaPath), {
+                recursive: true,
+                force: true,
+            });
         }
     });
     it('runs prisma generate with no hints', async () => {
