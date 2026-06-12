@@ -12,7 +12,10 @@ export type Deferred<T> = {
     reject(reason: unknown): void;
 };
 
-export function createDeferred<T>(): [Deferred<T>, Promise<T>] {
+export function createDeferred<T>(): [
+    Deferred<T>,
+    Promise<T>,
+] {
     const deferred = {} as Deferred<T>;
     return [
         deferred,

@@ -50,6 +50,7 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
         const {fields, rows} = await this.performIO(query);
 
         const columnNames = fields.map((field) => field.name);
+        // eslint-disable-next-line no-useless-assignment
         let columnTypes: ColumnType[] = [];
 
         try {
