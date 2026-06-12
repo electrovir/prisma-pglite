@@ -61,8 +61,8 @@
         "@electric-sql/pglite": "^0.5.1",
         "@eslint/eslintrc": "^3.3.5",
         "@eslint/js": "^10.0.1",
-        "@prisma/client": "^6.17.1",
-        "@prisma/driver-adapter-utils": "^6.17.1",
+        "@prisma/client": "^7.8.0",
+        "@prisma/driver-adapter-utils": "^7.8.0",
         "@stylistic/eslint-plugin": "^5.10.0",
         "@stylistic/eslint-plugin-ts": "^4.4.1",
         "@types/minimist": "^1.2.5",
@@ -92,8 +92,8 @@
         "prettier-plugin-packagejson": "^3.0.2",
         "prettier-plugin-sort-json": "^4.2.0",
         "prettier-plugin-toml": "^2.0.6",
-        "prisma": "^6.17.1",
-        "prisma-vir": "^3.0.0",
+        "prisma": "^7.8.0",
+        "prisma-vir": "^4.0.0-beta.0",
         "runstorm": "^1.0.2",
         "type-fest": "^5.7.0",
         "typedoc": "^0.28.19",
@@ -104,7 +104,7 @@
     "peerDependencies": {
         "@electric-sql/pglite": "*",
         "@prisma/driver-adapter-utils": "*",
-        "prisma": ">=6.6.0"
+        "prisma": ">=7"
     },
     "engines": {
         "node": ">=22"
