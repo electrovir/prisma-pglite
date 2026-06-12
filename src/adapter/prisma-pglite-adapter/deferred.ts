@@ -1,6 +1,6 @@
 /**
  * This file is copied from
- * https://github.com/lucasthevenet/pglite-utils/blob/7e9fa3c9d6ef39e05c2a6e14f1037a87b8a26f4a/packages/prisma-adapter/src/conversion.ts
+ * https://github.com/lucasthevenet/pglite-utils/blob/97a566f7df47841845ff8e3c3a61f5b40f5a9e98/packages/prisma-adapter/src/deferred.ts
  *
  * Which has the MIT license, author `Lucas Thevenet <lcervantes@dc.uba.ar>`.
  */

@@ -1,23 +1,24 @@
 /**
  * This file is copied from
- * https://github.com/lucasthevenet/pglite-utils/blob/7e9fa3c9d6ef39e05c2a6e14f1037a87b8a26f4a/packages/prisma-adapter/src/conversion.ts
+ * https://github.com/lucasthevenet/pglite-utils/blob/97a566f7df47841845ff8e3c3a61f5b40f5a9e98/packages/prisma-adapter/src/conversion.ts
  *
  * Which has the MIT license, author `Lucas Thevenet <lcervantes@dc.uba.ar>`. It has been modified
  * slightly to pass this package's ESLint settings.
  */
 
-/* eslint-disable sonarjs/todo-tag */
 // cspell:disable
 /* node:coverage disable */
 
 import {type ParserOptions, types} from '@electric-sql/pglite';
-import {type ColumnType, ColumnTypeEnum} from '@prisma/driver-adapter-utils';
+import {type ArgType, type ColumnType, ColumnTypeEnum} from '@prisma/driver-adapter-utils';
 import {parse as parseArray} from 'postgres-array';
 
-const ScalarColumnType = {
-    ...types,
+/** Additional scalar column types not defined in `pg` types builtins. */
+const AdditionalScalarColumnType = {
     NAME: 19,
-} as const;
+};
+
+const ScalarColumnType = types;
 
 /**
  * PostgreSQL array column types (not defined in ScalarColumnType).
@@ -26,21 +27,32 @@ const ScalarColumnType = {
  * https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
  */
 const ArrayColumnType = {
+    BIT: 1561,
+    BOOL: 1000,
     BYTEA: 1001,
+    BPCHAR: 1014,
     CHAR: 1002,
-    INT8: 1016,
-    INT2: 1005,
-    INT4: 1007,
-    TEXT: 1009,
-    OID: 1028,
-    JSON: 199,
+    CIDR: 651,
+    DATE: 1182,
     FLOAT4: 1021,
     FLOAT8: 1022,
-    VARCHAR: 1015,
+    INET: 1041,
+    INT2: 1005,
+    INT4: 1007,
+    INT8: 1016,
     JSONB: 3807,
-    DATE: 1182,
+    JSON: 199,
+    MONEY: 791,
+    NUMERIC: 1231,
+    OID: 1028,
+    TEXT: 1009,
     TIMESTAMP: 1115,
-    TIMESTAMPTZ: 1116,
+    TIMESTAMPTZ: 1185,
+    TIME: 1183,
+    UUID: 2951,
+    VARBIT: 1563,
+    VARCHAR: 1015,
+    XML: 143,
 } as const;
 
 export class UnsupportedNativeDataType extends Error {
@@ -213,7 +225,7 @@ export function fieldToColumnType(fieldTypeId: number): ColumnType {
         case ScalarColumnType.INET:
         case ScalarColumnType.CIDR:
         case ScalarColumnType.XML:
-        case ScalarColumnType.NAME:
+        case AdditionalScalarColumnType.NAME:
             return ColumnTypeEnum.Text;
         case ScalarColumnType.CHAR:
             return ColumnTypeEnum.Character;
@@ -226,10 +238,21 @@ export function fieldToColumnType(fieldTypeId: number): ColumnType {
             return ColumnTypeEnum.FloatArray;
         case ArrayColumnType.FLOAT8:
             return ColumnTypeEnum.DoubleArray;
+        case ArrayColumnType.NUMERIC:
+        case ArrayColumnType.MONEY:
+            return ColumnTypeEnum.NumericArray;
+        case ArrayColumnType.BOOL:
+            return ColumnTypeEnum.BooleanArray;
         case ArrayColumnType.CHAR:
             return ColumnTypeEnum.CharacterArray;
+        case ArrayColumnType.BPCHAR:
         case ArrayColumnType.TEXT:
         case ArrayColumnType.VARCHAR:
+        case ArrayColumnType.VARBIT:
+        case ArrayColumnType.BIT:
+        case ArrayColumnType.INET:
+        case ArrayColumnType.CIDR:
+        case ArrayColumnType.XML:
             return ColumnTypeEnum.TextArray;
         case ArrayColumnType.DATE:
             return ColumnTypeEnum.DateArray;
@@ -241,8 +264,10 @@ export function fieldToColumnType(fieldTypeId: number): ColumnType {
             return ColumnTypeEnum.JsonArray;
         case ArrayColumnType.BYTEA:
             return ColumnTypeEnum.BytesArray;
-        case ArrayColumnType.OID:
+        case ArrayColumnType.UUID:
+            return ColumnTypeEnum.UuidArray;
         case ArrayColumnType.INT8:
+        case ArrayColumnType.OID:
             return ColumnTypeEnum.Int64Array;
         default:
             // Postgres custom types (types that come from extensions and user's enums).
@@ -256,32 +281,34 @@ export function fieldToColumnType(fieldTypeId: number): ColumnType {
     }
 }
 
-function normalize_array<T>(element_normalizer: (string: string) => T): (string: string) => T[] {
+function normalize_array(
+    element_normalizer: (string: string) => string,
+): (string: string) => string[] {
     return (str) => parseArray(str, element_normalizer);
 }
 
-/* Number-related data-types  */
+/* Number-related data-types */
 
 function normalize_numeric(numeric: string): string {
     return numeric;
 }
 
-/* Time-related data-types  */
+/* Time-related data-types */
 
 function normalize_date(date: string): string {
     return date;
 }
 
 function normalize_timestamp(time: string): string {
-    return time;
+    return `${time.replace(' ', 'T')}+00:00`;
 }
 
 function normalize_timestampz(time: string): string {
-    return time.split('+')[0] as string;
+    return time.replace(' ', 'T').replace(/[+-]\d{2}(:\d{2})?$/, '+00:00');
 }
 
 /*
- * TIME, TIMETZ, TIME_ARRAY - converts value (or value elements) to a string in the format HH:mm:ss.f
+ * TIME, TIMETZ, TIME - converts value (or value elements) to a string in the format HH:mm:ss.f
  */
 
 function normalize_time(time: string): string {
@@ -291,7 +318,7 @@ function normalize_time(time: string): string {
 function normalize_timez(time: string): string {
     // Although it might be controversial, UTC is assumed in consistency with the behavior of rust postgres driver
     // in quaint. See quaint/src/connector/postgres/conversion.rs
-    return time.split('+')[0] as string;
+    return time.replace(/[+-]\d{2}(:\d{2})?$/, '');
 }
 
 /* Money handling */
@@ -300,48 +327,60 @@ function normalize_money(money: string): string {
     return money.slice(1);
 }
 
+/* XML handling */
+
+function normalize_xml(xml: string): string {
+    return xml;
+}
+
 /* JSON handling */
 
 /**
  * We hand off JSON handling entirely to engines, so we keep it stringified here. This function
  * needs to exist as otherwise the default type parser attempts to deserialise it.
  */
-function toJson(json: string): unknown {
+function toJson(json: string): string {
     return json;
 }
 
 /* Binary data handling */
 
-/**
- * TODO:
- *
- * 1. Check if using base64 would be more efficient than this encoding.
- * 2. Consider the possibility of eliminating re-encoding altogether and passing bytea hex format to
- *    the engine if that can be aligned with other adapters of the same database provider.
- */
-function encodeBuffer(buffer: Buffer) {
-    return Array.from(new Uint8Array(buffer));
-}
-
 /*
  * BYTEA - arbitrary raw binary strings
  */
 
-const parsePgBytes = (x: string) => Buffer.from(x.slice(2), 'hex');
+const parsePgBytes = (x: string): Uint8Array => Buffer.from(x.slice(2), 'hex');
+
+/*
+ * BYTEA_ARRAY - arrays of arbitrary raw binary strings
+ */
+function normalizeByteaArray(x: string) {
+    return parseArray(x).map((value: string): Uint8Array => parsePgBytes(value));
+}
 
 /**
  * Convert bytes to a JSON-encodable representation since we can't currently send a parsed Buffer or
  * ArrayBuffer across JS to Rust boundary.
  */
-function convertBytes(serializedBytes: string): number[] {
-    const buffer = parsePgBytes(serializedBytes);
-    return encodeBuffer(buffer);
+function convertBytes(serializedBytes: string): Uint8Array {
+    return parsePgBytes(serializedBytes);
+}
+
+/* BIT, VARBIT */
+
+function normalizeBit(bit: string): string {
+    return bit;
+}
+
+function normalizeBigInt(bigint: string): string {
+    return bigint;
 }
 
 export const customParsers: ParserOptions = {
-    [ScalarColumnType.INT8]: normalize_numeric,
     [ScalarColumnType.NUMERIC]: normalize_numeric,
+    [ArrayColumnType.NUMERIC]: normalize_array(normalize_numeric),
     [ScalarColumnType.TIME]: normalize_time,
+    [ArrayColumnType.TIME]: normalize_array(normalize_time),
     [ScalarColumnType.TIMETZ]: normalize_timez,
     [ScalarColumnType.DATE]: normalize_date,
     [ArrayColumnType.DATE]: normalize_array(normalize_date),
@@ -350,26 +389,76 @@ export const customParsers: ParserOptions = {
     [ScalarColumnType.TIMESTAMPTZ]: normalize_timestampz,
     [ArrayColumnType.TIMESTAMPTZ]: normalize_array(normalize_timestampz),
     [ScalarColumnType.MONEY]: normalize_money,
+    [ArrayColumnType.MONEY]: normalize_array(normalize_money),
     [ScalarColumnType.JSON]: toJson,
+    [ArrayColumnType.JSON]: normalize_array(toJson),
     [ScalarColumnType.JSONB]: toJson,
+    [ArrayColumnType.JSONB]: normalize_array(toJson),
     [ScalarColumnType.BYTEA]: convertBytes,
-    [ArrayColumnType.BYTEA]: normalize_array(convertBytes),
+    [ArrayColumnType.BYTEA]: normalizeByteaArray,
+    [ArrayColumnType.BIT]: normalize_array(normalizeBit),
+    [ArrayColumnType.VARBIT]: normalize_array(normalizeBit),
+    [ArrayColumnType.XML]: normalize_array(normalize_xml),
+    [ScalarColumnType.INT8]: normalizeBigInt,
+    [ArrayColumnType.INT8]: normalize_array(normalizeBigInt),
 };
 
-// https://github.com/brianc/node-postgres/pull/2930
-export function fixArrayBufferValues(values: unknown[]) {
-    for (const list of values) {
-        if (!Array.isArray(list)) {
-            continue;
-        }
+export function mapArg<A>(
+    arg: A | Date,
+    argType: ArgType,
+): null | unknown[] | string | Uint8Array | A {
+    if (arg === null) {
+        return null;
+    } else if (Array.isArray(arg) && argType.arity === 'list') {
+        return arg.map((value) => mapArg(value, argType));
+    }
 
-        for (let j = 0; j < list.length; j++) {
-            const listItem = list[j];
-            if (ArrayBuffer.isView(listItem)) {
-                list[j] = Buffer.from(listItem.buffer, listItem.byteOffset, listItem.byteLength);
-            }
+    const dateArg =
+        typeof arg === 'string' && argType.scalarType === 'datetime' ? new Date(arg) : arg;
+
+    if (dateArg instanceof Date) {
+        switch (argType.dbType) {
+            case 'TIME':
+            case 'TIMETZ':
+                return formatTime(dateArg);
+            case 'DATE':
+                return formatDate(dateArg);
+            default:
+                return formatDateTime(dateArg);
         }
     }
 
-    return values;
+    if (typeof dateArg === 'string' && argType.scalarType === 'bytes') {
+        return Buffer.from(dateArg, 'base64');
+        // https://github.com/brianc/node-postgres/pull/2930
+    } else if (ArrayBuffer.isView(dateArg)) {
+        return new Uint8Array(dateArg.buffer, dateArg.byteOffset, dateArg.byteLength);
+    }
+
+    return dateArg;
+}
+
+function formatDateTime(date: Date): string {
+    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    const ms = date.getUTCMilliseconds();
+    return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(
+        date.getUTCDate(),
+    )} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}${
+        ms ? `.${String(ms).padStart(3, '0')}` : ''
+    }`;
+}
+
+function formatDate(date: Date): string {
+    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(
+        date.getUTCDate(),
+    )}`;
+}
+
+function formatTime(date: Date): string {
+    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    const ms = date.getUTCMilliseconds();
+    return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}${
+        ms ? `.${String(ms).padStart(3, '0')}` : ''
+    }`;
 }

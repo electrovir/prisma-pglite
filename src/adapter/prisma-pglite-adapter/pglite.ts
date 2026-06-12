@@ -1,6 +1,6 @@
 /**
  * This file is copied from
- * https://github.com/lucasthevenet/pglite-utils/blob/7e9fa3c9d6ef39e05c2a6e14f1037a87b8a26f4a/packages/prisma-adapter/src/conversion.ts
+ * https://github.com/lucasthevenet/pglite-utils/blob/97a566f7df47841845ff8e3c3a61f5b40f5a9e98/packages/prisma-adapter/src/pglite.ts
  *
  * Which has the MIT license, author `Lucas Thevenet <lcervantes@dc.uba.ar>`. It has been modified
  * slightly to pass this package's ESLint and TypeScript settings.
@@ -11,6 +11,7 @@
 import * as pglite from '@electric-sql/pglite';
 import type {PGliteWorker} from '@electric-sql/pglite/worker';
 import type {
+    ArgType,
     ColumnType,
     ConnectionInfo,
     IsolationLevel,
@@ -23,13 +24,9 @@ import type {
     TransactionOptions,
 } from '@prisma/driver-adapter-utils';
 import {Debug, DriverAdapterError} from '@prisma/driver-adapter-utils';
-import {
-    UnsupportedNativeDataType,
-    customParsers,
-    fieldToColumnType,
-    fixArrayBufferValues,
-} from './conversion.js';
+import {UnsupportedNativeDataType, customParsers, fieldToColumnType, mapArg} from './conversion.js';
 import {createDeferred, type Deferred} from './deferred.js';
+import {convertDriverError} from './errors.js';
 
 const adapterName = 'prisma-pglite-adapter';
 
@@ -85,10 +82,11 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
     }
 
     private async performIO(query: SqlQuery): Promise<pglite.Results<unknown>> {
-        const {sql, args: values} = query;
+        const {sql, args} = query;
+        const values = args.map((arg, index) => mapArg(arg, query.argTypes[index] as ArgType));
 
         try {
-            const result = await this.pgliteClient.query(sql, fixArrayBufferValues(values), {
+            const result = await this.pgliteClient.query(sql, values, {
                 rowMode: 'array',
                 parsers: customParsers,
             });
@@ -102,15 +100,7 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
     protected onError(error: unknown): never {
         debug('Error in performIO: %O', error);
         if (error instanceof pglite.messages.DatabaseError) {
-            throw new DriverAdapterError({
-                kind: 'postgres',
-                code: error.code ?? 'UNKNOWN',
-                severity: error.severity ?? 'UNKNOWN',
-                message: error.message,
-                detail: error.detail,
-                column: error.column,
-                hint: error.hint,
-            });
+            throw new DriverAdapterError(convertDriverError(error));
         }
         throw error;
     }
