@@ -11,8 +11,9 @@ import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
 import {getNowInUtcTimezone} from 'date-vir';
 import {existsSync} from 'node:fs';
 import {mkdir, readdir, readFile, writeFile} from 'node:fs/promises';
-import {dirname, join} from 'node:path';
-import {getDefaultMigrationsDirPath, getDefaultSchemaPath} from '../util/default-paths.js';
+import {join} from 'node:path';
+import {getDefaultMigrationsDirPath, getDefaultPrismaConfigPath} from '../util/default-paths.js';
+import {resolvePrismaConfigPaths} from '../util/prisma-config.js';
 
 /**
  * Params for {@link createPgliteMigration}
@@ -21,18 +22,14 @@ import {getDefaultMigrationsDirPath, getDefaultSchemaPath} from '../util/default
  */
 export type PgliteMigrationParams = PartialWithUndefined<{
     /**
-     * Path to the Prisma generated `migrations` folder. If this is not provided, it will be deduced
-     * from the provided or defaulted `schemaFilePath`.
-     */
-    migrationsDirPath: string;
-    /**
-     * Path to your Prisma schema file. If this is not provided, it will be deduced from the
-     * provided `migrationsDirPath` or your cwd.
+     * Path to a Prisma config file (`prisma.config.ts`). Prisma v7 reads the schema location,
+     * datasource, and (if set) the `migrations.path` from this config. The migrations directory is
+     * derived from it: the config's `migrations.path` if set, otherwise the `migrations` folder
+     * next to the schema.
      *
-     * @default
-     * migrationsDirPath ? join(dirname(migrationsDirPath), 'schema.prisma') : join(process.cwd(), 'prisma', 'schema.prisma')
+     * @default join(process.cwd(), 'prisma.config.ts')
      */
-    schemaFilePath: string;
+    prismaConfigPath: string;
     /**
      * The file name for snapshots saved into the migrations folder. This defaults to a name that
      * won't easily clash with the actual `schema.prisma` file when devs are searching for it.
@@ -51,7 +48,12 @@ export type PgliteMigrationParams = PartialWithUndefined<{
     migrationName: string;
 };
 
-type ResolvedPgliteMigrationParams = RequiredAndNotNull<PgliteMigrationParams>;
+type ResolvedPgliteMigrationParams = RequiredAndNotNull<PgliteMigrationParams> & {
+    /** Resolved from the Prisma config referenced by {@link PgliteMigrationParams.prismaConfigPath}. */
+    schemaFilePath: string;
+    /** Resolved from the Prisma config referenced by {@link PgliteMigrationParams.prismaConfigPath}. */
+    migrationsDirPath: string;
+};
 
 /**
  * Default file name for a migration schema snapshot.
@@ -60,18 +62,14 @@ type ResolvedPgliteMigrationParams = RequiredAndNotNull<PgliteMigrationParams>;
  */
 export const defaultSnapshotFileName = 'source.snapshot';
 
-function finalizeMigrationParams(
+async function finalizeMigrationParams(
     params: Readonly<PgliteMigrationParams>,
-): ResolvedPgliteMigrationParams {
-    /* node:coverage disable */
-    const schemaFilePath: string =
-        params.schemaFilePath ||
-        (params.migrationsDirPath
-            ? join(dirname(params.migrationsDirPath), 'schema.prisma')
-            : getDefaultSchemaPath());
-    const migrationsDirPath: string =
-        params.migrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath);
-    /* node:coverage enable */
+): Promise<ResolvedPgliteMigrationParams> {
+    const prismaConfigPath = params.prismaConfigPath || getDefaultPrismaConfigPath();
+    const {schemaPath: schemaFilePath, migrationsDirPath: configMigrationsDirPath} =
+        await resolvePrismaConfigPaths(prismaConfigPath);
+    const migrationsDirPath =
+        configMigrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath);
 
     assert.isTruthy(migrationsDirPath, 'Unable to determine migrationsDirPath.');
     assert.isTruthy(schemaFilePath, 'Unable to determine schemaFilePath.');
@@ -83,6 +81,7 @@ function finalizeMigrationParams(
     const snapshotFileName = params.snapshotFileName || defaultSnapshotFileName;
 
     return {
+        prismaConfigPath,
         migrationsDirPath,
         schemaFilePath,
         enableLogs: !!params.enableLogs,
@@ -128,8 +127,14 @@ export const migrationLockFileContents = [
 export async function createPgliteMigration(
     params: Readonly<PgliteMigrationParams>,
 ): Promise<PgliteMigration | undefined> {
-    const {migrationsDirPath, schemaFilePath, enableLogs, snapshotFileName, migrationName} =
-        finalizeMigrationParams(params);
+    const {
+        migrationsDirPath,
+        schemaFilePath,
+        prismaConfigPath,
+        enableLogs,
+        snapshotFileName,
+        migrationName,
+    } = await finalizeMigrationParams(params);
 
     const now = getNowInUtcTimezone();
 
@@ -147,7 +152,7 @@ export async function createPgliteMigration(
     const previousSchema = await findLatestMigrationPath(migrationsDirPath);
     const fromArgs = previousSchema
         ? [
-              '--from-schema-datamodel',
+              '--from-schema',
               wrapString({
                   value: interpolationSafeWindowsPath(join(previousSchema, snapshotFileName)),
                   wrapper: "'",
@@ -160,9 +165,14 @@ export async function createPgliteMigration(
         'migrate',
         'diff',
         ...fromArgs,
-        '--to-schema-datamodel',
+        '--to-schema',
         wrapString({
             value: interpolationSafeWindowsPath(schemaFilePath),
+            wrapper: "'",
+        }),
+        '--config',
+        wrapString({
+            value: interpolationSafeWindowsPath(prismaConfigPath),
             wrapper: "'",
         }),
         '--script',

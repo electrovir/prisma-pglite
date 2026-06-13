@@ -3,11 +3,7 @@ import {describe, it} from '@augment-vir/test';
 import {existsSync} from 'node:fs';
 import {rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {
-    mockMigrationsDirPath,
-    mockPrismaSchema,
-    notCommittedDirPath,
-} from '../util/file-paths.mock.js';
+import {mockPrismaConfig, notCommittedDirPath} from '../util/file-paths.mock.js';
 import {setupPrisma} from '../util/setup-prisma.mock.js';
 import {createPgliteAdapter} from './pglite-adapter.js';
 import {verifyPrismaClient} from './pglite-adapter.mock.js';
@@ -20,8 +16,7 @@ describe(createPgliteAdapter.name, () => {
             adapter: await createPgliteAdapter({
                 dbDirName: testContext,
                 resetDatabase: true,
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath: mockPrismaConfig,
             }),
         });
 
@@ -34,8 +29,7 @@ describe(createPgliteAdapter.name, () => {
             adapter: await createPgliteAdapter({
                 dbDirName: 'my name',
                 resetDatabase: true,
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath: mockPrismaConfig,
             }),
         });
 
@@ -47,8 +41,7 @@ describe(createPgliteAdapter.name, () => {
         const adapter = await createPgliteAdapter({
             dbDirName: testContext,
             resetDatabase: true,
-            schemaFilePath: mockPrismaSchema,
-            migrationsDirPath: mockMigrationsDirPath,
+            prismaConfigPath: mockPrismaConfig,
             databaseName: 'db1',
         });
 
@@ -82,8 +75,7 @@ describe(createPgliteAdapter.name, () => {
             adapter: await createPgliteAdapter({
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath: mockPrismaConfig,
                 dbParentDirPath: customDbParentDirPath,
             }),
         });
@@ -95,8 +87,7 @@ describe(createPgliteAdapter.name, () => {
             adapter: await createPgliteAdapter({
                 /** Leave this empty to use the default `dev` database. */
                 // testContext,
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath: mockPrismaConfig,
                 dbParentDirPath: customDbParentDirPath,
                 resetDatabase: true,
             }),
@@ -104,10 +95,10 @@ describe(createPgliteAdapter.name, () => {
         assert.isTrue(existsSync(join(customDbParentDirPath, 'dev')));
         assert.isEmpty(await prismaClient2.user.findMany());
     });
-    it('reads the default schema path', async (testContext) => {
+    it('reads the default config path', async (testContext) => {
         const PrismaClient = await setupPrisma();
 
-        /** This fails because we don't have a schema path in the default location. */
+        /** This fails because we don't have a Prisma config in the default location. */
         await assert.throws(
             async () => {
                 const prismaClient = new PrismaClient({

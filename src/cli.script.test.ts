@@ -12,11 +12,8 @@ import {
     migrationLockFileContents,
     migrationLockFileName,
 } from './migrations/migrate-dev.js';
-import {
-    mockMigrationsDirPath,
-    mockPrismaSchema,
-    notCommittedDirPath,
-} from './util/file-paths.mock.js';
+import {mockPrismaConfig, notCommittedDirPath} from './util/file-paths.mock.js';
+import {writeMockPrismaConfig} from './util/mock-prisma-config.mock.js';
 import {setupPrisma} from './util/setup-prisma.mock.js';
 
 async function runCli(args: ReadonlyArray<string>, options?: {hookUpToConsole?: boolean}) {
@@ -38,35 +35,31 @@ describe('cli', () => {
         assert.hasValues(stdout, [
             'prisma',
             '@prisma/client',
-            'Computed binaryTarget',
+            'Schema Engine',
         ]);
     });
     it('generates a migration', async (testContext) => {
-        const migrationsDirPath = join(
-            notCommittedDirPath,
-            'tests',
-            extractTestNameAsDir(testContext),
-            'migrations',
-        );
+        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+        const migrationsDirPath = join(testDirPath, 'migrations');
 
-        await rm(migrationsDirPath, {
+        await rm(testDirPath, {
             recursive: true,
             force: true,
         });
         assert.isFalse(existsSync(migrationsDirPath));
+
+        const prismaConfigPath = await writeMockPrismaConfig({
+            dirPath: testDirPath,
+            migrationsDirPath,
+        });
 
         await runCli([
             'migrate',
             'dev',
             '--name',
             'my-migration',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
-            '--migrations',
-            wrapString({
-                value: interpolationSafeWindowsPath(migrationsDirPath),
-                wrapper: "'",
-            }),
+            '--config',
+            interpolationSafeWindowsPath(prismaConfigPath),
         ]);
 
         assert.isTrue(existsSync(migrationsDirPath));
@@ -106,34 +99,14 @@ describe('cli', () => {
             'my-migration',
         ]);
     });
-    it('generates a migration with only a migrations path', async (testContext) => {
-        const migrationsDirPath = join(
-            notCommittedDirPath,
-            'tests',
-            extractTestNameAsDir(testContext),
-            'migrations',
-        );
-
+    it('generates a migration with only a config path', async () => {
         await runCli([
             'migrate',
             'dev',
             '--name',
             'my-migration',
-            '--migrations',
-            wrapString({
-                value: interpolationSafeWindowsPath(migrationsDirPath),
-                wrapper: "'",
-            }),
-        ]);
-    });
-    it('generates a migration with only a schema path', async () => {
-        await runCli([
-            'migrate',
-            'dev',
-            '--name',
-            'my-migration',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
+            '--config',
+            interpolationSafeWindowsPath(mockPrismaConfig),
         ]);
     });
     it('fails when there are no changes', async () => {
@@ -143,8 +116,8 @@ describe('cli', () => {
                 'dev',
                 '--name',
                 'my-migration',
-                '--schema',
-                interpolationSafeWindowsPath(mockPrismaSchema),
+                '--config',
+                interpolationSafeWindowsPath(mockPrismaConfig),
             ],
             {
                 hookUpToConsole: false,
@@ -154,12 +127,17 @@ describe('cli', () => {
         assert.hasValue(output.stdout, 'No changes detected');
     });
     it('accepts a CLI input migration name', async (testContext) => {
-        const migrationsDirPath = join(
-            notCommittedDirPath,
-            'tests',
-            extractTestNameAsDir(testContext),
-            'migrations',
-        );
+        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+        const migrationsDirPath = join(testDirPath, 'migrations');
+
+        await rm(testDirPath, {
+            recursive: true,
+            force: true,
+        });
+        const prismaConfigPath = await writeMockPrismaConfig({
+            dirPath: testDirPath,
+            migrationsDirPath,
+        });
 
         const fullCommand = [
             'echo',
@@ -169,13 +147,8 @@ describe('cli', () => {
             join(import.meta.dirname, 'cli.script.ts'),
             'migrate',
             'dev',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
-            '--migrations',
-            wrapString({
-                value: interpolationSafeWindowsPath(migrationsDirPath),
-                wrapper: "'",
-            }),
+            '--config',
+            interpolationSafeWindowsPath(prismaConfigPath),
         ].join(' ');
 
         await runShellCommand(fullCommand, {
@@ -197,33 +170,29 @@ describe('cli', () => {
         assert.hasValue(newMigrationDirName, 'cli_input_name');
     });
     it('uses a custom snapshot file name', async (testContext) => {
-        const migrationsDirPath = join(
-            notCommittedDirPath,
-            'tests',
-            extractTestNameAsDir(testContext),
-            'migrations',
-        );
+        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+        const migrationsDirPath = join(testDirPath, 'migrations');
 
-        await rm(migrationsDirPath, {
+        await rm(testDirPath, {
             recursive: true,
             force: true,
         });
         assert.isFalse(existsSync(migrationsDirPath));
+
+        const prismaConfigPath = await writeMockPrismaConfig({
+            dirPath: testDirPath,
+            migrationsDirPath,
+        });
 
         await runCli([
             'migrate',
             'dev',
             '--name',
             'my-migration',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
+            '--config',
+            interpolationSafeWindowsPath(prismaConfigPath),
             '--snapshot',
             'custom.snapshot',
-            '--migrations',
-            wrapString({
-                value: interpolationSafeWindowsPath(migrationsDirPath),
-                wrapper: "'",
-            }),
         ]);
 
         assert.isTrue(existsSync(migrationsDirPath));
@@ -253,8 +222,7 @@ describe('cli', () => {
         const PrismaClient = await setupPrisma();
 
         const adapter = await createPgliteAdapter({
-            schemaFilePath: mockPrismaSchema,
-            migrationsDirPath: mockMigrationsDirPath,
+            prismaConfigPath: mockPrismaConfig,
             directDatabaseDirPath: databaseDirPath,
             resetDatabase: true,
         });
@@ -271,8 +239,8 @@ describe('cli', () => {
         await runCli([
             'migrate',
             'reset',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
+            '--config',
+            interpolationSafeWindowsPath(mockPrismaConfig),
             '--database',
             wrapString({
                 value: interpolationSafeWindowsPath(databaseDirPath),
@@ -282,8 +250,7 @@ describe('cli', () => {
 
         const prismaClient2 = new PrismaClient({
             adapter: await createPgliteAdapter({
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath: mockPrismaConfig,
                 directDatabaseDirPath: databaseDirPath,
             }),
         });
@@ -292,6 +259,7 @@ describe('cli', () => {
         await prismaClient2.$disconnect();
     });
     it('resets a database with default paths', async () => {
+        const prismaConfigPath = join('prisma.config.ts');
         const schemaPath = join('prisma', 'schema.prisma');
         try {
             await mkdir(dirname(schemaPath), {
@@ -302,9 +270,22 @@ describe('cli', () => {
                 `
                     datasource db {
                         provider = "postgresql"
-                        url      = env("DATABASE_URL")
                     }
                 `,
+            );
+            await writeFile(
+                prismaConfigPath,
+                [
+                    "import {defineConfig} from 'prisma/config';",
+                    '',
+                    'export default defineConfig({',
+                    "    schema: 'prisma/schema.prisma',",
+                    '    datasource: {',
+                    "        url: 'postgresql://prisma-pglite@localhost:5432/prisma-pglite',",
+                    '    },',
+                    '});',
+                    '',
+                ].join('\n'),
             );
             const {stderr} = await runCli([
                 'migrate',
@@ -317,13 +298,16 @@ describe('cli', () => {
                 recursive: true,
                 force: true,
             });
+            await rm(prismaConfigPath, {
+                force: true,
+            });
         }
     });
     it('runs prisma generate with no hints', async () => {
         const {stdout} = await runCli([
             'generate',
-            '--schema',
-            interpolationSafeWindowsPath(mockPrismaSchema),
+            '--config',
+            interpolationSafeWindowsPath(mockPrismaConfig),
         ]);
     });
 });

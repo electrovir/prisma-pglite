@@ -15,18 +15,11 @@ import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
  */
 export type PgliteAdapterParams = PartialWithUndefined<{
     /**
-     * Path to the directory containing your Prisma migration folders. Each migration folder should
-     * contain a `migration.sql` file.
+     * Path to a Prisma config file (`prisma.config.ts`).
      *
-     * @default join(process.cwd(), 'prisma', 'migrations')
+     * @default join(process.cwd(), 'prisma.config.ts')
      */
-    migrationsDirPath: string;
-    /**
-     * Path to the Prisma schema file. Used as a fallback when no migrations exist.
-     *
-     * @default join(process.cwd(), 'prisma', 'schema.prisma')
-     */
-    schemaFilePath: string;
+    prismaConfigPath: string;
     /**
      * This is the path to your PGlite parent directory. Inside of this directory will be created
      * the actual PGlite directories for each database name..
@@ -103,7 +96,8 @@ export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
  * it (similar to `prisma db push`). This _cannot_, however, push new migrations to an existing
  * PGlite database (as `prisma db push` does with a normal Postgres database).
  *
- * Ensure that you have the `"driverAdapters"` preview feature enabled in your Prisma schema.
+ * Requires Prisma v7 or later, where driver adapters are enabled by default (no preview feature is
+ * required).
  *
  * @category Adapter
  * @example
@@ -116,8 +110,7 @@ export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
  *
  * const prismaClient = new PrismaClient({
  *     adapter: await createPgliteAdapter({
- *         schemaFilePath,
- *         migrationsDirPath,
+ *         prismaConfigPath,
  *     }),
  * });
  * ```
@@ -128,8 +121,8 @@ export class PrismaPgliteAdapter extends PrismaPGliteAdapterFactory {
  *
  * ```prisma
  * generator jsClient {
- *     provider        = "prisma-client-js"
- *     previewFeatures = ["strictUndefinedChecks", "driverAdapters"]
+ *     provider = "prisma-client"
+ *     output   = "../generated"
  * }
  * ```
  */
@@ -158,9 +151,8 @@ export async function createPgliteAdapter(
 
         const pglite = needsReset
             ? await resetPgliteDatabase({
-                  migrationsDirPath: params.migrationsDirPath,
                   pgliteDatabaseDirPath: databaseDirPath,
-                  schemaFilePath: params.schemaFilePath,
+                  prismaConfigPath: params.prismaConfigPath,
               })
             : new PGlite(databaseDirPath);
 

@@ -3,11 +3,8 @@ import {collapseWhiteSpace} from '@augment-vir/common';
 import {describe, extractTestNameAsDir, it, itCases} from '@augment-vir/test';
 import {mkdir, readdir, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {
-    mockMigrationsDirPath,
-    mockPrismaSchema,
-    notCommittedDirPath,
-} from '../util/file-paths.mock.js';
+import {mockPrismaSchema, notCommittedDirPath} from '../util/file-paths.mock.js';
+import {writeMockPrismaConfig} from '../util/mock-prisma-config.mock.js';
 import {
     createPgliteMigration,
     defaultSnapshotFileName,
@@ -17,20 +14,27 @@ import {
 } from './migrate-dev.js';
 
 describe(createPgliteMigration.name, () => {
-    it('creates a migration', async () => {
-        await rm(mockMigrationsDirPath, {
+    it('creates a migration in the config-defined migrations directory', async (testContext) => {
+        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+        const migrationsDirPath = join(testDirPath, 'migrations');
+
+        await rm(testDirPath, {
             recursive: true,
             force: true,
         });
+        const prismaConfigPath = await writeMockPrismaConfig({
+            dirPath: testDirPath,
+            migrationsDirPath,
+        });
+
         assert.isDefined(
             await createPgliteMigration({
                 migrationName: 'test migration',
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath,
             }),
         );
 
-        const migrationDirChildren = await readdir(mockMigrationsDirPath);
+        const migrationDirChildren = await readdir(migrationsDirPath);
 
         assert.hasValue(migrationDirChildren, migrationLockFileName);
         const newMigrationDirNames = migrationDirChildren.filter(
@@ -38,7 +42,7 @@ describe(createPgliteMigration.name, () => {
         );
         assert.isLengthExactly(newMigrationDirNames, 1);
 
-        const newMigrationDirPath = join(mockMigrationsDirPath, newMigrationDirNames[0]);
+        const newMigrationDirPath = join(migrationsDirPath, newMigrationDirNames[0]);
         const newMigrationDirChildren = await readdir(newMigrationDirPath);
         assert.deepEquals(
             newMigrationDirChildren.toSorted(),
@@ -62,8 +66,7 @@ describe(createPgliteMigration.name, () => {
         assert.isUndefined(
             await createPgliteMigration({
                 migrationName: 'test migration',
-                schemaFilePath: mockPrismaSchema,
-                migrationsDirPath: mockMigrationsDirPath,
+                prismaConfigPath,
             }),
             'should not create a new migration when no changes have been made',
         );

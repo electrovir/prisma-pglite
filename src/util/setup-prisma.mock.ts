@@ -1,7 +1,7 @@
 import {readFile, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {prismaApi} from 'prisma-vir';
-import {generatedOutputDirPath, mockPrismaSchema} from './file-paths.mock.js';
+import {generatedOutputDirPath, mockPrismaConfig} from './file-paths.mock.js';
 
 /**
  * Prisma generates `export const DbNull = runtime.objectEnumValues.instances.DbNull` (and the same
@@ -43,7 +43,7 @@ export async function setupPrisma() {
         recursive: true,
     });
     await prismaApi.client.generate({
-        schemaPath: mockPrismaSchema,
+        configPath: mockPrismaConfig,
     });
 
     await patchGeneratedNullTypeAnnotations();

@@ -25,11 +25,11 @@ npm i prisma-pglite
 
 ### tl;dr
 
--   Set the `driverAdapters` preview feature in your `schema.prisma`:
+-   Use the `prisma-client` generator in your `schema.prisma` (driver adapters are built in to Prisma v7, so no preview feature is required):
     ```prisma
     generator client {
-        provider        = "prisma-client-js"
-        previewFeatures = ["driverAdapters"]
+        provider = "prisma-client"
+        output   = "../generated"
     }
     ```
 -   Use `createPgliteAdapter`:
@@ -63,12 +63,11 @@ npx prisma-pglite migrate dev
 The `prisma-pglite` CLI will:
 
 -   Intercept `migrate dev` commands so that they work without running a full Postgres instance.
-    -   Use `--schema <schema-path>` to customize the schema location.
+    -   Use `--config <prisma-config-path>` to customize the Prisma config location. The schema and the migrations directory (`migrations.path`) are both read from it. Defaults to `prisma.config.ts` in your current directory.
     -   Use `--name <migration-name>` to provide the migration name inline (otherwise the CLI will prompt you for one).
-    -   Use `--migrations <migrations-dir-path>` to customize the location of your `migrations` folder.
     -   Note that this command will generate a `source.snapshot` (customizable with `--snapshot <snapshot-file-name>`) file inside each migration. You _must_ keep and commit this file otherwise this command will not work in the future (this file is used to keep track of migration progress instead of a postgres instance, as Prisma normally uses).
 -   Intercept `migrate reset` commands so that they work with a PGlite database.
-    -   Use `--schema <schema-path>` to customize the schema location.
+    -   Use `--config <prisma-config-path>` to customize the Prisma config location. The schema and the migrations directory (`migrations.path`) are both read from it. Defaults to `prisma.config.ts` in your current directory.
     -   Use `--database <pglite-db-parent-dir-path>` to customize the location of your PGlite database that needs to be reset.
 -   Automatically append `--no-hints` to the `prisma generate` command.
 -   Pass all other commands directly to the Prisma CLI without modification.
@@ -116,13 +115,11 @@ import {join} from 'node:path';
 import {PrismaClient} from '../generated/client.js';
 import {createPgliteAdapter} from 'prisma-pglite';
 
-const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
-const myMigrationsDirPath = join('packages', 'backend', 'prisma', 'migrations');
+const myPrismaConfigPath = join('packages', 'backend', 'prisma.config.ts');
 
 const prismaClient = new PrismaClient({
     adapter: await createPgliteAdapter({
-        schemaFilePath: mySchemaPath,
-        migrationsDirPath: myMigrationsDirPath,
+        prismaConfigPath: myPrismaConfigPath,
     }),
 });
 ```
@@ -131,12 +128,12 @@ const prismaClient = new PrismaClient({
 
 See the type [`PgliteAdapterParams`](https://electrovir.github.io/prisma-pglite/types/PgliteAdapterParams.html) for more details on customizing `createPgliteAdapter`.
 
-Make sure that you have the [`driverAdapters` preview feature enabled](https://www.prisma.io/docs/orm/overview/databases/database-drivers#how-to-use-driver-adapters) in your `schema.prisma`. If you don't enable this, your `PrismaClient` constructor won't have an `adapter` parameter available.
+This package requires Prisma v7 or later. Driver adapters are enabled by default in Prisma v7, so the `adapter` parameter is always available on your `PrismaClient` constructor (no preview feature is required). Use the `prisma-client` generator in your `schema.prisma`:
 
 ```prisma
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client"
+  output   = "../generated"
 }
 ```
 
@@ -148,7 +145,7 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
 
 -   Create a new migration with some flags:
     ```sh
-    npx prisma-pglite migrate dev --schema packages/backend/prisma/schema.prisma --name 'add user table'
+    npx prisma-pglite migrate dev --config packages/backend/prisma.config.ts --name 'add user table'
     ```
 -   Reset your PGlite database
     ```sh
@@ -162,13 +159,11 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
     import {PrismaClient} from '../generated/client.js';
     import {createPgliteAdapter} from 'prisma-pglite';
 
-    const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
-    const myMigrationsDirPath = join('packages', 'backend', 'prisma', 'migrations');
+    const myPrismaConfigPath = join('packages', 'backend', 'prisma.config.ts');
 
     const prismaClient = new PrismaClient({
         adapter: await createPgliteAdapter({
-            schemaFilePath: mySchemaPath,
-            migrationsDirPath: myMigrationsDirPath,
+            prismaConfigPath: myPrismaConfigPath,
             dbParentDirPath: join('.dev', 'pglite'),
         }),
     });
@@ -183,15 +178,13 @@ By default, the `pgliteDirPath` parameter of `createPgliteAdapter` expects multi
     import {PrismaClient} from '../generated/client.js';
     import {createPgliteAdapter} from 'prisma-pglite';
 
-    const mySchemaPath = join('packages', 'backend', 'prisma', 'schema.prisma');
-    const myMigrationsDirPath = join('packages', 'backend', 'prisma', 'migrations');
+    const myPrismaConfigPath = join('packages', 'backend', 'prisma.config.ts');
 
     describe('my test', () => {
         it('connects to the database', async (testContext) => {
             const prismaClient = new PrismaClient({
                 adapter: await createPgliteAdapter({
-                    schemaFilePath: mySchemaPath,
-                    migrationsDirPath: myMigrationsDirPath,
+                    prismaConfigPath: myPrismaConfigPath,
                     dbParentDirPath: join('.dev', 'pglite'),
                     dbDirName: testContext,
                     /** It is recommended to always reset the database for tests. */

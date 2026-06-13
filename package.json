@@ -62,6 +62,7 @@
         "@eslint/eslintrc": "^3.3.5",
         "@eslint/js": "^10.0.1",
         "@prisma/client": "^7.8.0",
+        "@prisma/config": "^7.8.0",
         "@prisma/driver-adapter-utils": "^7.8.0",
         "@stylistic/eslint-plugin": "^5.10.0",
         "@stylistic/eslint-plugin-ts": "^4.4.1",
@@ -103,6 +104,7 @@
     },
     "peerDependencies": {
         "@electric-sql/pglite": "*",
+        "@prisma/config": ">=7",
         "@prisma/driver-adapter-utils": "*",
         "prisma": ">=7"
     },

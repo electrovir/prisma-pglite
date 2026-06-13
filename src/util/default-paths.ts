@@ -18,12 +18,13 @@ export function getDefaultDbParentDirPath() {
 }
 
 /**
- * Generate a default `schema.prisma` path from the current directory.
+ * Generate a default Prisma config (`prisma.config.ts`) path from the current directory. Prisma v7
+ * reads the schema location and datasource from this config file.
  *
  * @category Internal
  */
-export function getDefaultSchemaPath() {
-    return join(process.cwd(), 'prisma', 'schema.prisma');
+export function getDefaultPrismaConfigPath() {
+    return join(process.cwd(), 'prisma.config.ts');
 }
 
 /**

@@ -1,12 +1,13 @@
-import {type PartialWithUndefined, type RequiredAndNotNull} from '@augment-vir/common';
+import {type PartialWithUndefined} from '@augment-vir/common';
 import {existsSync} from 'node:fs';
 import {mkdir, readdir, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {
     getDefaultDbParentDirPath,
     getDefaultMigrationsDirPath,
-    getDefaultSchemaPath,
+    getDefaultPrismaConfigPath,
 } from '../util/default-paths.js';
+import {resolvePrismaConfigPaths} from '../util/prisma-config.js';
 import {generateInitSql} from '../util/sql-init.js';
 
 /**
@@ -16,13 +17,6 @@ import {generateInitSql} from '../util/sql-init.js';
  */
 export type ResetPgliteDatabaseParams = PartialWithUndefined<{
     /**
-     * Path to the directory containing your Prisma migration folders. Each migration folder should
-     * contain a `migration.sql` file.
-     *
-     * @default join(process.cwd(), 'prisma', 'migrations')
-     */
-    migrationsDirPath: string;
-    /**
      * Path to the PGlite database directory.
      *
      * @default
@@ -31,11 +25,14 @@ export type ResetPgliteDatabaseParams = PartialWithUndefined<{
      */
     pgliteDatabaseDirPath: string;
     /**
-     * Path to the Prisma schema file. Used as a fallback when no migrations exist.
+     * Path to a Prisma config file (`prisma.config.ts`). Prisma v7 reads the schema location,
+     * datasource, and (if set) the `migrations.path` from this config. The migrations directory is
+     * derived from it: the config's `migrations.path` if set, otherwise the `migrations` folder
+     * next to the schema.
      *
-     * @default join(process.cwd(), 'prisma', 'schema.prisma')
+     * @default join(process.cwd(), 'prisma.config.ts')
      */
-    schemaFilePath: string;
+    prismaConfigPath: string;
 }>;
 
 /**
@@ -45,26 +42,30 @@ export type ResetPgliteDatabaseParams = PartialWithUndefined<{
  * @category CLI
  */
 export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabaseParams> = {}) {
-    const params = finalizeResetParams(rawParams);
+    const prismaConfigPath = rawParams.prismaConfigPath || getDefaultPrismaConfigPath();
+    const pgliteDatabaseDirPath =
+        rawParams.pgliteDatabaseDirPath || join(getDefaultDbParentDirPath(), 'dev');
+    const {schemaPath, migrationsDirPath: configMigrationsDirPath} =
+        await resolvePrismaConfigPaths(prismaConfigPath);
+    const migrationsDirPath = configMigrationsDirPath || getDefaultMigrationsDirPath(schemaPath);
 
     /* node:coverage ignore next 1: dynamic imports are not a branch */
     const pgliteImport = import('@electric-sql/pglite');
-    const initSql = await generateInitSql(params.schemaFilePath);
 
-    await rm(params.pgliteDatabaseDirPath, {
+    await rm(pgliteDatabaseDirPath, {
         force: true,
         recursive: true,
     });
-    await mkdir(params.pgliteDatabaseDirPath, {
+    await mkdir(pgliteDatabaseDirPath, {
         recursive: true,
     });
 
-    const pglite = new (await pgliteImport).PGlite(params.pgliteDatabaseDirPath);
+    const pglite = new (await pgliteImport).PGlite(pgliteDatabaseDirPath);
 
     /* node:coverage disable */
-    const migrationDirs = existsSync(params.migrationsDirPath)
+    const migrationDirs = existsSync(migrationsDirPath)
         ? (
-              await readdir(params.migrationsDirPath, {
+              await readdir(migrationsDirPath, {
                   withFileTypes: true,
               })
           )
@@ -75,14 +76,14 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
 
     if (migrationDirs.length) {
         for (const migrationDir of migrationDirs) {
-            const migrationSqlPath = join(params.migrationsDirPath, migrationDir, 'migration.sql');
+            const migrationSqlPath = join(migrationsDirPath, migrationDir, 'migration.sql');
             if (existsSync(migrationSqlPath)) {
                 const sql = await readFile(migrationSqlPath, 'utf-8');
                 await pglite.exec(sql);
             }
         }
     } else {
-        await pglite.exec(initSql);
+        await pglite.exec(await generateInitSql(prismaConfigPath));
     }
     /* node:coverage enable */
 
@@ -93,17 +94,4 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
     process.exitCode = undefined;
 
     return pglite;
-}
-
-function finalizeResetParams(
-    params: Readonly<ResetPgliteDatabaseParams>,
-): RequiredAndNotNull<ResetPgliteDatabaseParams> {
-    const schemaFilePath = params.schemaFilePath || getDefaultSchemaPath();
-
-    return {
-        pgliteDatabaseDirPath:
-            params.pgliteDatabaseDirPath || join(getDefaultDbParentDirPath(), 'dev'),
-        migrationsDirPath: params.migrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath),
-        schemaFilePath,
-    };
 }
