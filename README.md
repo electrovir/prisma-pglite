@@ -65,7 +65,6 @@ The `prisma-pglite` CLI will:
 -   Intercept `migrate dev` commands so that they work without running a full Postgres instance.
     -   Use `--config <prisma-config-path>` to customize the Prisma config location. The schema and the migrations directory (`migrations.path`) are both read from it. Defaults to `prisma.config.ts` in your current directory.
     -   Use `--name <migration-name>` to provide the migration name inline (otherwise the CLI will prompt you for one).
-    -   Note that this command will generate a `source.snapshot` (customizable with `--snapshot <snapshot-file-name>`) file inside each migration. You _must_ keep and commit this file otherwise this command will not work in the future (this file is used to keep track of migration progress instead of a postgres instance, as Prisma normally uses).
 -   Intercept `migrate reset` commands so that they work with a PGlite database.
     -   Use `--config <prisma-config-path>` to customize the Prisma config location. The schema and the migrations directory (`migrations.path`) are both read from it. Defaults to `prisma.config.ts` in your current directory.
     -   Use `--database <pglite-db-parent-dir-path>` to customize the location of your PGlite database that needs to be reset.
@@ -135,6 +134,16 @@ generator client {
   provider = "prisma-client"
   output   = "../generated"
 }
+```
+
+#### Schema engine version
+
+Migrations run through Prisma's WASM schema engine (`@prisma/schema-engine-wasm`), which `prisma-pglite` depends on at a pinned version. That package publishes only prerelease-tagged versions, so it can't be expressed as a semver range. `prisma-pglite` ships a specific tested version as the default.
+
+If you need it to match a different Prisma release, override the version in `package.json` with the following (use the exact `@prisma/schema-engine-wasm` version that ships with your `prisma`):
+
+```jsonc
+"overrides": {"@prisma/schema-engine-wasm": "7.9.0-<n>.<hash>"}
 ```
 
 #### PGlite paths

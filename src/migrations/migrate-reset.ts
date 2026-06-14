@@ -1,6 +1,5 @@
 import {type PartialWithUndefined} from '@augment-vir/common';
-import {existsSync} from 'node:fs';
-import {mkdir, readdir, readFile, rm} from 'node:fs/promises';
+import {mkdir, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {
     getDefaultDbParentDirPath,
@@ -8,7 +7,11 @@ import {
     getDefaultPrismaConfigPath,
 } from '../util/default-paths.js';
 import {resolvePrismaConfigPaths} from '../util/prisma-config.js';
-import {generateInitSql} from '../util/sql-init.js';
+import {
+    applyMigrationsOrPushSchema,
+    readMigrationList,
+    readSchemaContainers,
+} from './schema-engine.js';
 
 /**
  * Parameters for {@link resetPgliteDatabase}.
@@ -37,7 +40,9 @@ export type ResetPgliteDatabaseParams = PartialWithUndefined<{
 
 /**
  * Reset a dev database to your Prisma schema with a PGlite database. This is analogous to running
- * `prisma migrate reset` with a plain Postgres database.
+ * `prisma migrate reset` with a plain Postgres database. Existing migrations are applied through
+ * the Prisma schema engine; if there are no migrations, the schema is pushed directly (like `prisma
+ * db push`).
  *
  * @category CLI
  */
@@ -49,8 +54,16 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
         await resolvePrismaConfigPaths(prismaConfigPath);
     const migrationsDirPath = configMigrationsDirPath || getDefaultMigrationsDirPath(schemaPath);
 
+    const [
+        schemaContainers,
+        migrations,
+    ] = await Promise.all([
+        readSchemaContainers(schemaPath),
+        readMigrationList(migrationsDirPath),
+    ]);
+
     /* node:coverage ignore next 1: dynamic imports are not a branch */
-    const pgliteImport = import('@electric-sql/pglite');
+    const {PGlite} = await import('@electric-sql/pglite');
 
     await rm(pgliteDatabaseDirPath, {
         force: true,
@@ -60,32 +73,14 @@ export async function resetPgliteDatabase(rawParams: Readonly<ResetPgliteDatabas
         recursive: true,
     });
 
-    const pglite = new (await pgliteImport).PGlite(pgliteDatabaseDirPath);
+    const pglite = new PGlite(pgliteDatabaseDirPath);
+    await pglite.waitReady;
 
-    /* node:coverage disable */
-    const migrationDirs = existsSync(migrationsDirPath)
-        ? (
-              await readdir(migrationsDirPath, {
-                  withFileTypes: true,
-              })
-          )
-              .filter((entry) => entry.isDirectory())
-              .map((entry) => entry.name)
-              .sort()
-        : [];
-
-    if (migrationDirs.length) {
-        for (const migrationDir of migrationDirs) {
-            const migrationSqlPath = join(migrationsDirPath, migrationDir, 'migration.sql');
-            if (existsSync(migrationSqlPath)) {
-                const sql = await readFile(migrationSqlPath, 'utf-8');
-                await pglite.exec(sql);
-            }
-        }
-    } else {
-        await pglite.exec(await generateInitSql(prismaConfigPath));
-    }
-    /* node:coverage enable */
+    await applyMigrationsOrPushSchema({
+        pglite,
+        migrations,
+        schemaContainers,
+    });
 
     /**
      * PGlite's WASM PostgreSQL startup sets process.exitCode as a side effect. Reset it after all

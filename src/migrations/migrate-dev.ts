@@ -3,17 +3,22 @@ import {
     camelCaseToKebabCase,
     collapseWhiteSpace,
     log,
-    wrapString,
+    randomString,
     type PartialWithUndefined,
-    type RequiredAndNotNull,
 } from '@augment-vir/common';
-import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
 import {getNowInUtcTimezone} from 'date-vir';
 import {existsSync} from 'node:fs';
-import {mkdir, readdir, readFile, writeFile} from 'node:fs/promises';
-import {join} from 'node:path';
+import {mkdir, readdir, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {dirname, join} from 'node:path';
 import {getDefaultMigrationsDirPath, getDefaultPrismaConfigPath} from '../util/default-paths.js';
 import {resolvePrismaConfigPaths} from '../util/prisma-config.js';
+import {
+    diffMigrationSql,
+    migrationLockFileName,
+    readMigrationList,
+    readSchemaContainers,
+} from './schema-engine.js';
 
 /**
  * Params for {@link createPgliteMigration}
@@ -31,13 +36,6 @@ export type PgliteMigrationParams = PartialWithUndefined<{
      */
     prismaConfigPath: string;
     /**
-     * The file name for snapshots saved into the migrations folder. This defaults to a name that
-     * won't easily clash with the actual `schema.prisma` file when devs are searching for it.
-     *
-     * @default 'source.snapshot'
-     */
-    snapshotFileName: string;
-    /**
      * Enable logging.
      *
      * @default false
@@ -47,48 +45,6 @@ export type PgliteMigrationParams = PartialWithUndefined<{
     /** The name of the new migration, if one is needed. */
     migrationName: string;
 };
-
-type ResolvedPgliteMigrationParams = RequiredAndNotNull<PgliteMigrationParams> & {
-    /** Resolved from the Prisma config referenced by {@link PgliteMigrationParams.prismaConfigPath}. */
-    schemaFilePath: string;
-    /** Resolved from the Prisma config referenced by {@link PgliteMigrationParams.prismaConfigPath}. */
-    migrationsDirPath: string;
-};
-
-/**
- * Default file name for a migration schema snapshot.
- *
- * @category Internal
- */
-export const defaultSnapshotFileName = 'source.snapshot';
-
-async function finalizeMigrationParams(
-    params: Readonly<PgliteMigrationParams>,
-): Promise<ResolvedPgliteMigrationParams> {
-    const prismaConfigPath = params.prismaConfigPath || getDefaultPrismaConfigPath();
-    const {schemaPath: schemaFilePath, migrationsDirPath: configMigrationsDirPath} =
-        await resolvePrismaConfigPaths(prismaConfigPath);
-    const migrationsDirPath =
-        configMigrationsDirPath || getDefaultMigrationsDirPath(schemaFilePath);
-
-    assert.isTruthy(migrationsDirPath, 'Unable to determine migrationsDirPath.');
-    assert.isTruthy(schemaFilePath, 'Unable to determine schemaFilePath.');
-    assert.isTrue(
-        existsSync(schemaFilePath),
-        `schemaFilePath does not exist: '${schemaFilePath}'.`,
-    );
-
-    const snapshotFileName = params.snapshotFileName || defaultSnapshotFileName;
-
-    return {
-        prismaConfigPath,
-        migrationsDirPath,
-        schemaFilePath,
-        enableLogs: !!params.enableLogs,
-        snapshotFileName,
-        migrationName: sanitizeMigrationName(params.migrationName),
-    };
-}
 
 /**
  * Output from {@link createPgliteMigration}.
@@ -101,12 +57,6 @@ export type PgliteMigration = {
 };
 
 /**
- * Migration lock file name required by Prisma to deploy migrations.
- *
- * @category Internal
- */
-export const migrationLockFileName = 'migration_lock.toml';
-/**
  * Contents of the migration lock file as required by this plugin (specifically, using postgres).
  *
  * @category Internal
@@ -117,28 +67,10 @@ export const migrationLockFileContents = [
     'provider = "postgresql"',
 ].join('\n');
 
-/**
- * Create a dev migration using Prisma with a PGlite database. This is analogous to running `prisma
- * migrate dev` with a plain Postgres database.
- *
- * @category CLI
- * @returns {@link PgliteMigration} If the migration was created, otherwise `undefined`.
- */
-export async function createPgliteMigration(
-    params: Readonly<PgliteMigrationParams>,
-): Promise<PgliteMigration | undefined> {
-    const {
-        migrationsDirPath,
-        schemaFilePath,
-        prismaConfigPath,
-        enableLogs,
-        snapshotFileName,
-        migrationName,
-    } = await finalizeMigrationParams(params);
-
+function migrationTimestamp(): string {
     const now = getNowInUtcTimezone();
 
-    const migrationTime = [
+    return [
         now.year,
         now.month,
         now.day,
@@ -148,81 +80,75 @@ export async function createPgliteMigration(
     ]
         .map((entry) => String(entry).padStart(2, '0'))
         .join('');
+}
 
-    const previousSchema = await findLatestMigrationPath(migrationsDirPath);
-    const fromArgs = previousSchema
-        ? [
-              '--from-schema',
-              wrapString({
-                  value: interpolationSafeWindowsPath(join(previousSchema, snapshotFileName)),
-                  wrapper: "'",
-              }),
-          ]
-        : ['--from-empty'];
+/**
+ * Create a dev migration using Prisma with a PGlite database. This is analogous to running `prisma
+ * migrate dev` with a plain Postgres database.
+ *
+ * The new migration is computed by replaying the existing migration history into a throwaway PGlite
+ * database (the "shadow" database) and diffing it against your schema. No snapshot files are needed
+ * and the Prisma CLI is not invoked.
+ *
+ * @category CLI
+ * @returns {@link PgliteMigration} If the migration was created, otherwise `undefined`.
+ */
+export async function createPgliteMigration(
+    params: Readonly<PgliteMigrationParams>,
+): Promise<PgliteMigration | undefined> {
+    const prismaConfigPath = params.prismaConfigPath || getDefaultPrismaConfigPath();
+    const {schemaPath, migrationsDirPath: configMigrationsDirPath} =
+        await resolvePrismaConfigPaths(prismaConfigPath);
+    const migrationsDirPath = configMigrationsDirPath || getDefaultMigrationsDirPath(schemaPath);
+    const migrationName = sanitizeMigrationName(params.migrationName);
 
-    const diffCommand = [
-        'prisma',
-        'migrate',
-        'diff',
-        ...fromArgs,
-        '--to-schema',
-        wrapString({
-            value: interpolationSafeWindowsPath(schemaFilePath),
-            wrapper: "'",
-        }),
-        '--config',
-        wrapString({
-            value: interpolationSafeWindowsPath(prismaConfigPath),
-            wrapper: "'",
-        }),
-        '--script',
-        '--exit-code',
-    ].join(' ');
+    assert.isTrue(existsSync(schemaPath), `Prisma schema does not exist: '${schemaPath}'.`);
 
-    log.if(enableLogs).faint(
-        [
-            '>',
-            diffCommand,
-            '\n',
-        ].join(' '),
-    );
+    const [
+        schemaContainers,
+        existingMigrations,
+    ] = await Promise.all([
+        readSchemaContainers(schemaPath),
+        readMigrationList(migrationsDirPath),
+    ]);
 
-    const output = await runShellCommand(diffCommand, {
-        hookUpToConsole: false,
-        rejectOnError: false,
+    /* node:coverage ignore next 1: dynamic imports are not a branch */
+    const {PGlite} = await import('@electric-sql/pglite');
+    const shadowDirPath = join(tmpdir(), `prisma-pglite-shadow-${randomString()}`);
+    const shadowPglite = new PGlite(shadowDirPath);
+    await shadowPglite.waitReady;
+    process.exitCode = undefined;
+
+    const migrationSql = await diffMigrationSql({
+        shadowPglite,
+        existingMigrations,
+        schemaContainers,
+        schemaConfigDir: dirname(schemaPath),
+    }).finally(async () => {
+        await shadowPglite.close();
+        await rm(shadowDirPath, {
+            force: true,
+            recursive: true,
+        });
+        process.exitCode = undefined;
     });
 
-    if (output.exitCode === 0) {
+    if (!migrationSql) {
         log.warning('No changes detected.');
         return undefined;
-        /* node:coverage ignore next 3: idk how to trigger this intentionally */
-    } else if (output.exitCode === 1) {
-        throw new Error(output.stderr);
     }
 
     const migrationDirName = [
-        migrationTime,
+        migrationTimestamp(),
         migrationName,
     ].join('_');
-
     const newMigrationDirPath = join(migrationsDirPath, migrationDirName);
 
     await mkdir(newMigrationDirPath, {
         recursive: true,
     });
-    const migrationOutputPath = join(newMigrationDirPath, 'migration.sql');
-    await writeFile(migrationOutputPath, output.stdout);
-    await writeFile(
-        join(newMigrationDirPath, snapshotFileName),
-        [
-            '// Please do not edit this file manually.',
-            '// This file is required for keeping track of migration progress for PGlite databases.',
-            '// This file should be added in your version-control system (e.g., Git).',
-            '// Only the most recent snapshot must be kept, all previous snapshots can be deleted.',
-            '\n',
-            String(await readFile(schemaFilePath)),
-        ].join('\n'),
-    );
+    await writeFile(join(newMigrationDirPath, 'migration.sql'), migrationSql);
+
     const migrationLockFilePath = join(migrationsDirPath, migrationLockFileName);
     if (!existsSync(migrationLockFilePath)) {
         await writeFile(migrationLockFilePath, migrationLockFileContents);
@@ -245,7 +171,9 @@ export async function createPgliteMigration(
 export function sanitizeMigrationName(originalName: string): string {
     return camelCaseToKebabCase(collapseWhiteSpace(originalName).replaceAll(' ', '-'))
         .replaceAll('-', '_')
-        .toLowerCase();
+        .toLowerCase()
+        .replaceAll(/_{2,}/g, '_')
+        .replaceAll(/^_|_$/g, '');
 }
 
 /**
@@ -274,3 +202,5 @@ export async function findLatestMigrationPath(
 
     return join(migrationsDirPath, latestMigrationDir.name);
 }
+
+export {migrationLockFileName} from './schema-engine.js';

@@ -38,7 +38,6 @@ export async function runPrisma(cliArgs: ReadonlyArray<string>, env?: Record<str
         const result = await createPgliteMigration({
             prismaConfigPath,
             migrationName: parsedArgs.name || (await askQuestion('Please enter a migration name:')),
-            snapshotFileName: parsedArgs.snapshot,
         });
         if (!result) {
             console.info('No changes detected.');

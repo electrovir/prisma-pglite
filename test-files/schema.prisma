@@ -74,3 +74,30 @@ model UserStats {
     userSettingsId String       @unique
     settings       UserSettings @relation(fields: [userSettingsId], references: [id], onDelete: Cascade)
 }
+
+enum Color {
+    red
+    green
+    blue
+}
+
+model DataType {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    intField      Int
+    bigIntField   BigInt
+    floatField    Float
+    decimalField  Decimal
+    boolField     Boolean
+    dateTimeField DateTime
+    jsonField     Json
+    bytesField    Bytes
+    stringList    String[]
+    intList       Int[]
+    color         Color
+
+    optionalString String?
+    optionalInt    Int?
+}

@@ -7,11 +7,7 @@ import {mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 import {createPgliteAdapter} from './adapter/pglite-adapter.js';
 import {verifyPrismaClient} from './adapter/pglite-adapter.mock.js';
-import {
-    defaultSnapshotFileName,
-    migrationLockFileContents,
-    migrationLockFileName,
-} from './migrations/migrate-dev.js';
+import {migrationLockFileContents, migrationLockFileName} from './migrations/migrate-dev.js';
 import {mockPrismaConfig, notCommittedDirPath} from './util/file-paths.mock.js';
 import {writeMockPrismaConfig} from './util/mock-prisma-config.mock.js';
 import {setupPrisma} from './util/setup-prisma.mock.js';
@@ -82,13 +78,6 @@ describe('cli', () => {
         assert.hasValue(newMigrationDirName, 'my_migration');
         assert.isNotEmpty(
             String(await readFile(join(migrationsDirPath, newMigrationDirName, 'migration.sql'))),
-        );
-        assert.isNotEmpty(
-            String(
-                await readFile(
-                    join(migrationsDirPath, newMigrationDirName, defaultSnapshotFileName),
-                ),
-            ),
         );
     });
     it('generates a migration with default paths', async () => {
@@ -168,47 +157,6 @@ describe('cli', () => {
 
         assert.isDefined(newMigrationDirName);
         assert.hasValue(newMigrationDirName, 'cli_input_name');
-    });
-    it('uses a custom snapshot file name', async (testContext) => {
-        const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
-        const migrationsDirPath = join(testDirPath, 'migrations');
-
-        await rm(testDirPath, {
-            recursive: true,
-            force: true,
-        });
-        assert.isFalse(existsSync(migrationsDirPath));
-
-        const prismaConfigPath = await writeMockPrismaConfig({
-            dirPath: testDirPath,
-            migrationsDirPath,
-        });
-
-        await runCli([
-            'migrate',
-            'dev',
-            '--name',
-            'my-migration',
-            '--config',
-            interpolationSafeWindowsPath(prismaConfigPath),
-            '--snapshot',
-            'custom.snapshot',
-        ]);
-
-        assert.isTrue(existsSync(migrationsDirPath));
-
-        const migrationDirChildrenNames = await readdir(migrationsDirPath, {
-            withFileTypes: true,
-        });
-        assert.isLengthExactly(migrationDirChildrenNames, 2);
-        const newMigrationDirName = migrationDirChildrenNames.find((file) => {
-            return file.isDirectory();
-        })?.name;
-        assert.isDefined(newMigrationDirName);
-
-        assert.isNotEmpty(
-            String(await readFile(join(migrationsDirPath, newMigrationDirName, 'custom.snapshot'))),
-        );
     });
     it('resets a database', async (testContext) => {
         const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));

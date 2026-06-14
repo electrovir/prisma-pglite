@@ -1,5 +1,5 @@
 import {loadConfigFromFile} from '@prisma/config';
-import {dirname, isAbsolute, resolve} from 'node:path';
+import {dirname, resolve} from 'node:path';
 
 /**
  * Schema and migration locations resolved from a Prisma config file.
@@ -40,8 +40,12 @@ export async function resolvePrismaConfigPaths(
     }
 
     const configDir = dirname(prismaConfigPath);
-    const resolveFromConfig = (filePath: string) =>
-        isAbsolute(filePath) ? filePath : resolve(configDir, filePath);
+    /**
+     * `@prisma/config` already returns absolute paths, but resolving against the config directory
+     * is idempotent for absolute inputs and keeps this correct even if a relative path slips
+     * through.
+     */
+    const resolveFromConfig = (filePath: string) => resolve(configDir, filePath);
 
     const migrationsPath = loaded.config.migrations?.path;
 

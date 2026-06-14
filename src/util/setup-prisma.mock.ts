@@ -30,6 +30,7 @@ async function patchGeneratedNullTypeAnnotations() {
                 return contents.replace(unannotated, annotated);
             }, original);
 
+            /* node:coverage ignore next 3: whether a patch is needed depends on Prisma's generated output, not test logic */
             if (patched !== original) {
                 await writeFile(filePath, patched);
             }

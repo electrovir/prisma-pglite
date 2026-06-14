@@ -1,21 +1,14 @@
 import {assert} from '@augment-vir/assert';
-import {wrapString} from '@augment-vir/common';
-import {interpolationSafeWindowsPath, runShellCommand} from '@augment-vir/node';
-import {describe, extractTestNameAsDir, it} from '@augment-vir/test';
-import {PGlite} from '@electric-sql/pglite';
+import {describe, extractTestNameAsDir, it, type UniversalTestContext} from '@augment-vir/test';
 import {existsSync} from 'node:fs';
-import {mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {
-    mockPrismaConfig,
-    mockPrismaSchema,
-    notCommittedDirPath,
-    repoDirPath,
-} from '../util/file-paths.mock.js';
+import {Color} from '../generated/enums.js';
+import {mockPrismaConfig, notCommittedDirPath} from '../util/file-paths.mock.js';
+import {writeMockPrismaConfig} from '../util/mock-prisma-config.mock.js';
 import {setupPrisma} from '../util/setup-prisma.mock.js';
-import {createPgliteAdapter} from './pglite-adapter.js';
+import {createPgliteAdapter, type PrismaPgliteAdapter} from './pglite-adapter.js';
 import {verifyPrismaClient} from './pglite-adapter.mock.js';
-import {PrismaPGliteAdapterFactory} from './prisma-pglite-adapter/pglite.js';
 
 describe(createPgliteAdapter.name, () => {
     it('creates a functioning adapter', async (testContext) => {
@@ -124,101 +117,413 @@ describe(createPgliteAdapter.name, () => {
     });
 });
 
-describe('creating migrations through the driver adapter', () => {
-    /**
-     * Drives Prisma's native `migrate dev` directly through this package's PGlite driver adapter,
-     * bypassing the snapshot-based migration flow entirely. Prisma v7's CLI does not yet run
-     * `migrate dev` through a driver adapter (it still requires a `datasource.url` and never
-     * invokes the adapter for migrations), so this currently fails. The test documents the target
-     * behavior so we can verify it once that is supported.
-     */
-    it('creates and applies a migration without snapshots', async (testContext) => {
+type TestPrismaClient = InstanceType<Awaited<ReturnType<typeof setupPrisma>>>;
+
+/**
+ * Spins up a fresh PrismaClient backed by a fresh PGlite database with the full mock schema pushed
+ * (no migrations), runs the callback against it, then tears everything down.
+ */
+async function withDataClient(
+    testContext: Readonly<UniversalTestContext>,
+    callback: (
+        prismaClient: TestPrismaClient,
+        adapter: Readonly<PrismaPgliteAdapter>,
+    ) => Promise<void>,
+): Promise<void> {
+    const PrismaClient = await setupPrisma();
+    const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
+    await rm(testDirPath, {
+        recursive: true,
+        force: true,
+    });
+    const prismaConfigPath = await writeMockPrismaConfig({
+        dirPath: testDirPath,
+        migrationsDirPath: join(testDirPath, 'migrations'),
+    });
+    const adapter = await createPgliteAdapter({
+        prismaConfigPath,
+        directDatabaseDirPath: join(testDirPath, 'db'),
+        resetDatabase: true,
+    });
+    const prismaClient = new PrismaClient({
+        adapter,
+    });
+
+    try {
+        await callback(prismaClient, adapter);
+    } finally {
+        await prismaClient.$disconnect();
+        await adapter.pgliteClient.close();
+        process.exitCode = undefined;
+    }
+}
+
+describe('adapter data types', () => {
+    it('round-trips every scalar type', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            const created = await prismaClient.dataType.create({
+                data: {
+                    intField: 42,
+                    bigIntField: 9_007_199_254_740_993n,
+                    floatField: 3.5,
+                    decimalField: '123.456',
+                    boolField: true,
+                    dateTimeField: '2020-01-02T03:04:05.000Z',
+                    jsonField: {
+                        a: 1,
+                        b: [
+                            'x',
+                            true,
+                        ],
+                        c: null,
+                    },
+                    bytesField: new Uint8Array([
+                        0,
+                        1,
+                        2,
+                        250,
+                    ]),
+                    stringList: [
+                        'a',
+                        'b',
+                        'c',
+                    ],
+                    intList: [
+                        1,
+                        2,
+                        3,
+                    ],
+                    color: Color.green,
+                },
+            });
+
+            const found = await prismaClient.dataType.findUniqueOrThrow({
+                where: {
+                    id: created.id,
+                },
+            });
+
+            assert.strictEquals(found.intField, 42);
+            assert.strictEquals(found.bigIntField, 9_007_199_254_740_993n);
+            assert.strictEquals(found.floatField, 3.5);
+            assert.strictEquals(String(found.decimalField), '123.456');
+            assert.strictEquals(found.boolField, true);
+            assert.strictEquals(found.dateTimeField.toISOString(), '2020-01-02T03:04:05.000Z');
+            assert.deepEquals(found.jsonField, {
+                a: 1,
+                b: [
+                    'x',
+                    true,
+                ],
+                c: null,
+            });
+            assert.deepEquals(
+                [...found.bytesField],
+                [
+                    0,
+                    1,
+                    2,
+                    250,
+                ],
+            );
+            assert.deepEquals(found.stringList, [
+                'a',
+                'b',
+                'c',
+            ]);
+            assert.deepEquals(
+                found.intList,
+                [
+                    1,
+                    2,
+                    3,
+                ],
+            );
+            assert.strictEquals(found.color, Color.green);
+            assert.strictEquals(found.optionalString, null);
+            assert.strictEquals(found.optionalInt, null);
+        });
+    });
+
+    it('round-trips empty arrays and deeply nested json', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            const nestedJson = {
+                level1: {
+                    level2: [
+                        {
+                            deep: true,
+                        },
+                    ],
+                },
+            };
+            const created = await prismaClient.dataType.create({
+                data: {
+                    intField: 0,
+                    bigIntField: 0n,
+                    floatField: 0,
+                    decimalField: '0',
+                    boolField: false,
+                    dateTimeField: '2021-06-07T08:09:10.123Z',
+                    jsonField: nestedJson,
+                    bytesField: new Uint8Array([]),
+                    stringList: [],
+                    intList: [],
+                    color: Color.blue,
+                },
+            });
+
+            const found = await prismaClient.dataType.findUniqueOrThrow({
+                where: {
+                    id: created.id,
+                },
+            });
+
+            assert.deepEquals(found.jsonField, nestedJson);
+            assert.isEmpty(found.stringList);
+            assert.isEmpty(found.intList);
+            assert.isLengthExactly([...found.bytesField], 0);
+            assert.strictEquals(found.dateTimeField.toISOString(), '2021-06-07T08:09:10.123Z');
+        });
+    });
+});
+
+describe('adapter transactions', () => {
+    it('commits an interactive transaction', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            await prismaClient.$transaction(async (tx) => {
+                await tx.user.create({
+                    data: {
+                        email: 'a@example.com',
+                        password: 'pw',
+                    },
+                });
+                await tx.user.create({
+                    data: {
+                        email: 'b@example.com',
+                        password: 'pw',
+                    },
+                });
+            });
+
+            assert.strictEquals(await prismaClient.user.count(), 2);
+        });
+    });
+
+    it('rolls back a failed interactive transaction', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            await assert.throws(async () => {
+                await prismaClient.$transaction(async (tx) => {
+                    await tx.user.create({
+                        data: {
+                            email: 'a@example.com',
+                            password: 'pw',
+                        },
+                    });
+                    throw new Error('rollback please');
+                });
+            });
+
+            assert.strictEquals(await prismaClient.user.count(), 0);
+        });
+    });
+});
+
+describe('adapter error mapping', () => {
+    it('maps unique constraint violations', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            await prismaClient.region.create({
+                data: {
+                    regionName: 'duplicate',
+                },
+            });
+
+            await assert.throws(
+                async () =>
+                    prismaClient.region.create({
+                        data: {
+                            regionName: 'duplicate',
+                        },
+                    }),
+                {
+                    matchMessage: 'Unique constraint failed',
+                },
+            );
+        });
+    });
+
+    it('maps foreign key violations', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            await assert.throws(
+                async () =>
+                    prismaClient.userPost.create({
+                        data: {
+                            title: 'orphan',
+                            body: 'no user',
+                            userId: 'does-not-exist',
+                        },
+                    }),
+                {
+                    matchMessage: 'Foreign key constraint',
+                },
+            );
+        });
+    });
+});
+
+describe('adapter relations', () => {
+    it('supports nested writes, relation includes, and cascade deletes', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            const user = await prismaClient.user.create({
+                data: {
+                    email: 'nested@example.com',
+                    password: 'pw',
+                    posts: {
+                        create: [
+                            {
+                                title: 't1',
+                                body: 'b1',
+                            },
+                            {
+                                title: 't2',
+                                body: 'b2',
+                            },
+                        ],
+                    },
+                    settings: {
+                        create: {
+                            receivesMarketingEmails: true,
+                        },
+                    },
+                },
+                include: {
+                    posts: true,
+                    settings: true,
+                },
+            });
+
+            assert.isLengthExactly(user.posts, 2);
+            assert.isDefined(user.settings);
+            assert.strictEquals(await prismaClient.userPost.count(), 2);
+            assert.strictEquals(await prismaClient.userSettings.count(), 1);
+
+            await prismaClient.user.delete({
+                where: {
+                    id: user.id,
+                },
+            });
+
+            assert.strictEquals(await prismaClient.userPost.count(), 0);
+            assert.strictEquals(await prismaClient.userSettings.count(), 0);
+        });
+    });
+});
+
+describe('adapter raw queries', () => {
+    it('runs $queryRaw and $executeRaw through the adapter', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            await prismaClient.user.create({
+                data: {
+                    email: 'raw@example.com',
+                    password: 'pw',
+                },
+            });
+
+            const rows = await prismaClient.$queryRaw<Array<{count: number}>>`
+                SELECT count(*)::int AS count FROM "User"
+            `;
+            const countRow = rows[0];
+            assert.isDefined(countRow);
+            assert.strictEquals(countRow.count, 1);
+
+            const affected = await prismaClient.$executeRaw`
+                UPDATE "User" SET "role" = 'admin'
+            `;
+            assert.strictEquals(affected, 1);
+        });
+    });
+
+    it('exposes the inner PGlite client', async (testContext) => {
+        await withDataClient(testContext, async (_prismaClient, adapter) => {
+            const result = await adapter.pgliteClient.query<{one: number}>('SELECT 1 AS one');
+            const row = result.rows[0];
+            assert.isDefined(row);
+            assert.strictEquals(row.one, 1);
+        });
+    });
+
+    it('round-trips strings with quotes and SQL metacharacters safely', async (testContext) => {
+        await withDataClient(testContext, async (prismaClient) => {
+            const trickyEmail = `o'brien "; DROP TABLE "User"; --@example.com`;
+            const trickyPassword = String.raw`p\w%_'"`;
+            const created = await prismaClient.user.create({
+                data: {
+                    email: trickyEmail,
+                    password: trickyPassword,
+                },
+            });
+
+            const found = await prismaClient.user.findUniqueOrThrow({
+                where: {
+                    id: created.id,
+                },
+            });
+            assert.strictEquals(found.email, trickyEmail);
+            assert.strictEquals(found.password, trickyPassword);
+
+            /** The "DROP TABLE" in the value must have been bound as a parameter, not executed. */
+            assert.strictEquals(await prismaClient.user.count(), 1);
+        });
+    });
+});
+
+describe('adapter database lifecycle', () => {
+    it('reports wasJustInitialized and reuses an existing database without resetting', async (testContext) => {
         const PrismaClient = await setupPrisma();
-
         const testDirPath = join(notCommittedDirPath, 'tests', extractTestNameAsDir(testContext));
-        const databaseDirPath = join(testDirPath, 'pglite');
-        const migrationsDirPath = join(testDirPath, 'migrations');
-        const prismaConfigPath = join(testDirPath, 'prisma.config.ts');
-        const adapterModulePath = join(
-            repoDirPath,
-            'src',
-            'adapter',
-            'prisma-pglite-adapter',
-            'pglite.js',
-        );
-
         await rm(testDirPath, {
             recursive: true,
             force: true,
         });
-        await mkdir(testDirPath, {
-            recursive: true,
+        const prismaConfigPath = await writeMockPrismaConfig({
+            dirPath: testDirPath,
+            migrationsDirPath: join(testDirPath, 'migrations'),
         });
+        const databaseDirPath = join(testDirPath, 'db');
 
-        /**
-         * A Prisma config that points `migrate dev` at the PGlite database through this package's
-         * driver adapter. Note the absence of a `datasource.url`: the adapter is meant to be the
-         * connection.
-         */
-        await writeFile(
+        const firstAdapter = await createPgliteAdapter({
             prismaConfigPath,
-            [
-                "import {PGlite} from '@electric-sql/pglite';",
-                "import {defineConfig} from 'prisma/config';",
-                `import {PrismaPGliteAdapterFactory} from ${JSON.stringify(adapterModulePath)};`,
-                '',
-                'export default defineConfig({',
-                `    schema: ${JSON.stringify(mockPrismaSchema)},`,
-                `    migrations: {path: ${JSON.stringify(migrationsDirPath)}},`,
-                `    adapter: async () => new PrismaPGliteAdapterFactory(new PGlite(${JSON.stringify(databaseDirPath)})),`,
-                '});',
-                '',
-            ].join('\n'),
-        );
+            directDatabaseDirPath: databaseDirPath,
+            resetDatabase: true,
+        });
+        assert.isTrue(firstAdapter.wasJustInitialized);
+        assert.strictEquals(firstAdapter.databaseDirPath, databaseDirPath);
 
-        const migrateResult = await runShellCommand(
-            [
-                'prisma',
-                'migrate',
-                'dev',
-                '--name',
-                'init',
-                '--config',
-                wrapString({
-                    value: interpolationSafeWindowsPath(prismaConfigPath),
-                    wrapper: "'",
-                }),
-            ].join(' '),
-            {
-                hookUpToConsole: false,
-                rejectOnError: false,
+        const firstClient = new PrismaClient({
+            adapter: firstAdapter,
+        });
+        await firstClient.user.create({
+            data: {
+                email: 'persist@example.com',
+                password: 'pw',
             },
-        );
-
-        const newMigrationDir = (
-            existsSync(migrationsDirPath)
-                ? await readdir(migrationsDirPath, {
-                      withFileTypes: true,
-                  })
-                : []
-        ).find((entry) => entry.isDirectory());
-
-        assert.isDefined(
-            newMigrationDir,
-            `migrate dev did not create a migration:\n${migrateResult.stderr}`,
-        );
-        assert.isNotEmpty(
-            String(await readFile(join(migrationsDirPath, newMigrationDir.name, 'migration.sql'))),
-        );
-
+        });
+        await firstClient.$disconnect();
+        await firstAdapter.pgliteClient.close();
         process.exitCode = undefined;
 
-        /** The schema should have been applied to the PGlite database through the adapter. */
-        const prismaClient = new PrismaClient({
-            adapter: new PrismaPGliteAdapterFactory(new PGlite(databaseDirPath)),
+        /** Re-open the same database directory without resetting it. */
+        const secondAdapter = await createPgliteAdapter({
+            prismaConfigPath,
+            directDatabaseDirPath: databaseDirPath,
         });
-        assert.strictEquals(await prismaClient.user.count(), 0);
-        await prismaClient.$disconnect();
+        assert.isFalse(secondAdapter.wasJustInitialized);
+
+        const secondClient = new PrismaClient({
+            adapter: secondAdapter,
+        });
+        assert.strictEquals(await secondClient.user.count(), 1);
+        await secondClient.$disconnect();
+        await secondAdapter.pgliteClient.close();
         process.exitCode = undefined;
     });
 });
