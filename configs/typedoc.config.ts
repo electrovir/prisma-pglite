@@ -23,5 +23,6 @@ export const typeDocConfig: Partial<TypeDocOptions> = {
         'typescript',
         'sh',
         'prisma',
+        'jsonc',
     ],
 };
