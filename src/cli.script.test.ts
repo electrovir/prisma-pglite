@@ -24,6 +24,58 @@ async function runCli(args: ReadonlyArray<string>, options?: {hookUpToConsole?: 
     });
 }
 
+/**
+ * Writes a Prisma config and schema into the repo's default locations, runs the callback, then
+ * removes them again.
+ */
+async function withDefaultPrismaPaths(callback: () => Promise<void>) {
+    const prismaConfigPath = 'prisma.config.ts';
+    const schemaPath = join('prisma', 'schema.prisma');
+
+    try {
+        await mkdir(dirname(schemaPath), {
+            recursive: true,
+        });
+        await writeFile(
+            schemaPath,
+            [
+                'datasource db {',
+                '    provider = "postgresql"',
+                '}',
+                '',
+                'model DefaultPathUser {',
+                '    id String @id @default(cuid(2))',
+                '}',
+                '',
+            ].join('\n'),
+        );
+        await writeFile(
+            prismaConfigPath,
+            [
+                "import {defineConfig} from 'prisma/config';",
+                '',
+                'export default defineConfig({',
+                "    schema: 'prisma/schema.prisma',",
+                '    datasource: {',
+                "        url: 'postgresql://prisma-pglite@localhost:5432/prisma-pglite',",
+                '    },',
+                '});',
+                '',
+            ].join('\n'),
+        );
+
+        await callback();
+    } finally {
+        await rm(dirname(schemaPath), {
+            recursive: true,
+            force: true,
+        });
+        await rm(prismaConfigPath, {
+            force: true,
+        });
+    }
+}
+
 describe('cli', () => {
     it('passes normal commands directly to prisma', async () => {
         const {stdout} = await runCli(['--version']);
@@ -81,15 +133,20 @@ describe('cli', () => {
         );
     });
     it('generates a migration with default paths', async () => {
-        await runCli([
-            'migrate',
-            'dev',
-            '--name',
-            'my-migration',
-        ]);
+        await withDefaultPrismaPaths(async () => {
+            const {exitCode} = await runCli([
+                'migrate',
+                'dev',
+                '--name',
+                'my-migration',
+            ]);
+
+            assert.strictEquals(exitCode, 0);
+            assert.isTrue(existsSync(join('prisma', 'migrations')));
+        });
     });
     it('generates a migration with only a config path', async () => {
-        await runCli([
+        const {exitCode} = await runCli([
             'migrate',
             'dev',
             '--name',
@@ -97,6 +154,8 @@ describe('cli', () => {
             '--config',
             interpolationSafeWindowsPath(mockPrismaConfig),
         ]);
+
+        assert.strictEquals(exitCode, 0);
     });
     it('fails when there are no changes', async () => {
         const output = await runCli(
@@ -207,55 +266,27 @@ describe('cli', () => {
         await prismaClient2.$disconnect();
     });
     it('resets a database with default paths', async () => {
-        const prismaConfigPath = join('prisma.config.ts');
-        const schemaPath = join('prisma', 'schema.prisma');
-        try {
-            await mkdir(dirname(schemaPath), {
-                recursive: true,
-            });
-            await writeFile(
-                schemaPath,
-                `
-                    datasource db {
-                        provider = "postgresql"
-                    }
-                `,
-            );
-            await writeFile(
-                prismaConfigPath,
-                [
-                    "import {defineConfig} from 'prisma/config';",
-                    '',
-                    'export default defineConfig({',
-                    "    schema: 'prisma/schema.prisma',",
-                    '    datasource: {',
-                    "        url: 'postgresql://prisma-pglite@localhost:5432/prisma-pglite',",
-                    '    },',
-                    '});',
-                    '',
-                ].join('\n'),
-            );
+        await withDefaultPrismaPaths(async () => {
             const {stderr} = await runCli([
                 'migrate',
                 'reset',
             ]);
 
             assert.isEmpty(stderr);
-        } finally {
-            await rm(dirname(schemaPath), {
-                recursive: true,
-                force: true,
-            });
-            await rm(prismaConfigPath, {
-                force: true,
-            });
-        }
+        });
     });
     it('runs prisma generate with no hints', async () => {
-        const {stdout} = await runCli([
+        const {stdout, exitCode} = await runCli([
             'generate',
             '--config',
             interpolationSafeWindowsPath(mockPrismaConfig),
+        ]);
+
+        assert.strictEquals(exitCode, 0);
+        /** The CLI passes `--no-hints`, so Prisma's post-generate tips must be absent. */
+        assert.lacksValues(stdout, [
+            'Tip:',
+            'Start using Prisma Client',
         ]);
     });
 });

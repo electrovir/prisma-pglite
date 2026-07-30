@@ -31,6 +31,7 @@ export function convertDriverError(error: unknown): DriverAdapterErrorObject {
 }
 
 function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
+    // eslint-disable-next-line @virmator/no-switch
     switch (error.code) {
         case '22001':
             return {

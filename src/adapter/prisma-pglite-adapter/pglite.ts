@@ -81,7 +81,7 @@ class PGliteQueryable<ClientT extends pglite.PGlite | PGliteWorker | pglite.Tran
         return (await this.performIO(query)).affectedRows ?? 0;
     }
 
-    private async performIO(query: SqlQuery): Promise<pglite.Results<unknown>> {
+    protected async performIO(query: SqlQuery): Promise<pglite.Results<unknown>> {
         const {sql, args} = query;
         const values = args.map((arg, index) => mapArg(arg, query.argTypes[index] as ArgType));
 
@@ -110,8 +110,8 @@ class PGliteTransaction extends PGliteQueryable<pglite.Transaction> implements T
     constructor(
         client: pglite.Transaction,
         public readonly options: TransactionOptions,
-        private txDeferred: Deferred<void>,
-        private txResultPromise: Promise<void>,
+        protected txDeferred: Deferred<void>,
+        protected txResultPromise: Promise<void>,
     ) {
         super(client);
     }
@@ -137,7 +137,7 @@ export type PrismaPGliteOptions = {
 class PrismaPGliteAdapter extends PGliteQueryable<pglite.PGlite> implements SqlDriverAdapter {
     constructor(
         client: pglite.PGlite,
-        private options?: PrismaPGliteOptions,
+        protected options?: PrismaPGliteOptions,
     ) {
         super(client);
     }

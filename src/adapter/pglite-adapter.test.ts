@@ -14,28 +14,42 @@ describe(createPgliteAdapter.name, () => {
     it('creates a functioning adapter', async (testContext) => {
         const PrismaClient = await setupPrisma();
 
-        const prismaClient = new PrismaClient({
-            adapter: await createPgliteAdapter({
-                dbDirName: testContext,
-                resetDatabase: true,
-                prismaConfigPath: mockPrismaConfig,
-            }),
+        const adapter = await createPgliteAdapter({
+            dbDirName: testContext,
+            resetDatabase: true,
+            prismaConfigPath: mockPrismaConfig,
         });
 
-        await verifyPrismaClient(prismaClient);
+        assert.strictEquals(
+            adapter.databaseDirPath,
+            join(notCommittedDirPath, 'pglite', extractTestNameAsDir(testContext)),
+        );
+
+        await verifyPrismaClient(
+            new PrismaClient({
+                adapter,
+            }),
+        );
     });
     it('creates a functioning adapter with a string dbDirName', async () => {
         const PrismaClient = await setupPrisma();
 
-        const prismaClient = new PrismaClient({
-            adapter: await createPgliteAdapter({
-                dbDirName: 'my name',
-                resetDatabase: true,
-                prismaConfigPath: mockPrismaConfig,
-            }),
+        const adapter = await createPgliteAdapter({
+            dbDirName: 'my name',
+            resetDatabase: true,
+            prismaConfigPath: mockPrismaConfig,
         });
 
-        await verifyPrismaClient(prismaClient);
+        assert.strictEquals(
+            adapter.databaseDirPath,
+            join(notCommittedDirPath, 'pglite', 'my name'),
+        );
+
+        await verifyPrismaClient(
+            new PrismaClient({
+                adapter,
+            }),
+        );
     });
     it('supports databaseName', async (testContext) => {
         const PrismaClient = await setupPrisma();

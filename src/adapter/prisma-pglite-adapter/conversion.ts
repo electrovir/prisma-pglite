@@ -56,6 +56,7 @@ const ArrayColumnType = {
 } as const;
 
 export class UnsupportedNativeDataType extends Error {
+    public override readonly name = 'UnsupportedNativeDataType';
     // map of type codes to type names
     public static readonly typeNames: {[key: number]: string} = {
         16: 'bool',
@@ -187,6 +188,7 @@ export class UnsupportedNativeDataType extends Error {
  * the correct quaint::Value variant.
  */
 export function fieldToColumnType(fieldTypeId: number): ColumnType {
+    // eslint-disable-next-line @virmator/no-switch
     switch (fieldTypeId) {
         case ScalarColumnType.INT2:
         case ScalarColumnType.INT4:
@@ -414,9 +416,13 @@ export function mapArg<A>(
     }
 
     const dateArg =
-        typeof arg === 'string' && argType.scalarType === 'datetime' ? new Date(arg) : arg;
+        typeof arg === 'string' && argType.scalarType === 'datetime'
+            ? // eslint-disable-next-line @virmator/no-raw-date -- the Postgres wire formatters below operate on raw `Date` instances
+              new Date(arg)
+            : arg;
 
     if (dateArg instanceof Date) {
+        // eslint-disable-next-line @virmator/no-switch
         switch (argType.dbType) {
             case 'TIME':
             case 'TIMETZ':
@@ -433,9 +439,9 @@ export function mapArg<A>(
         // https://github.com/brianc/node-postgres/pull/2930
     } else if (ArrayBuffer.isView(dateArg)) {
         return new Uint8Array(dateArg.buffer, dateArg.byteOffset, dateArg.byteLength);
+    } else {
+        return dateArg;
     }
-
-    return dateArg;
 }
 
 function formatDateTime(date: Date): string {
