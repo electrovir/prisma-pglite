@@ -1,6 +1,6 @@
 {
     "name": "prisma-pglite",
-    "version": "3.0.1",
+    "version": "3.0.2",
     "description": "Making Prisma easy to use with PGlite.",
     "keywords": [
         "prisma",
@@ -29,7 +29,9 @@
     "main": "src/index.ts",
     "module": "src/index.ts",
     "types": "src/index.ts",
-    "bin": "bin.js",
+    "bin": {
+        "prisma-pglite": "bin.js"
+    },
     "scripts": {
         "compile": "npm run init && virmator compile",
         "docs": "virmator docs",
@@ -57,7 +59,7 @@
         "@augment-vir/common": "^32.5.0",
         "@augment-vir/node": "^32.5.0",
         "@augment-vir/test": "^32.5.0",
-        "@prisma/schema-engine-wasm": "8.1.0-2.59be4fda12412a79eeb9c2ae727b6aa723593323",
+        "@prisma/schema-engine-wasm": "7.10.0-4.0edf323efd1d98336f3f0a68684b56f689b900d3",
         "date-vir": "^9.2.1",
         "minimist": "^1.2.8",
         "postgres-array": "^3.0.4",
@@ -101,7 +103,7 @@
         "prettier-plugin-sort-json": "^4.2.0",
         "prettier-plugin-toml": "^3.0.2",
         "prisma": "^7.10.0",
-        "prisma-vir": "^4.2.1",
+        "prisma-vir": "^4.2.2",
         "runstorm": "^1.1.0",
         "typedoc": "^0.28.20",
         "typescript": "^6.0.3",
@@ -110,9 +112,9 @@
     },
     "peerDependencies": {
         "@electric-sql/pglite": "*",
-        "@prisma/config": ">=7",
+        "@prisma/config": "^7",
         "@prisma/driver-adapter-utils": "*",
-        "prisma": ">=7"
+        "prisma": "^7"
     },
     "engines": {
         "node": ">=22"
