@@ -17,7 +17,7 @@ import {
 export function convertDriverError(error: unknown): DriverAdapterErrorObject {
     if (isDriverError(error)) {
         return {
-            ...(error.code === undefined
+            ...(error.code == undefined
                 ? {}
                 : {
                       originalCode: error.code,
@@ -36,7 +36,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
         case '22001':
             return {
                 kind: 'LengthMismatch',
-                ...(error.column === undefined
+                ...(error.column == undefined
                     ? {}
                     : {
                           column: error.column,
@@ -59,7 +59,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
                 ?.split(', ');
             return {
                 kind: 'UniqueConstraintViolation',
-                ...(fields === undefined
+                ...(fields == undefined
                     ? {}
                     : {
                           constraint: {
@@ -75,7 +75,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
                 ?.split(', ');
             return {
                 kind: 'NullConstraintViolation',
-                ...(fields === undefined
+                ...(fields == undefined
                     ? {}
                     : {
                           constraint: {
@@ -108,7 +108,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
             const db = error.message.split(' ').at(1)?.split('"').at(1);
             return {
                 kind: 'DatabaseDoesNotExist',
-                ...(db === undefined
+                ...(db == undefined
                     ? {}
                     : {
                           db,
@@ -123,7 +123,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
                 .at(1);
             return {
                 kind: 'DatabaseAccessDenied',
-                ...(db === undefined
+                ...(db == undefined
                     ? {}
                     : {
                           db,
@@ -134,7 +134,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
             const user = error.message.split(' ').pop()?.split('"').at(1);
             return {
                 kind: 'AuthenticationFailed',
-                ...(user === undefined
+                ...(user == undefined
                     ? {}
                     : {
                           user,
@@ -149,7 +149,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
             const table = error.message.split(' ').at(1)?.split('"').at(1);
             return {
                 kind: 'TableDoesNotExist',
-                ...(table === undefined
+                ...(table == undefined
                     ? {}
                     : {
                           table,
@@ -160,7 +160,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
             const column = error.message.split(' ').at(1)?.split('"').at(1);
             return {
                 kind: 'ColumnNotFound',
-                ...(column === undefined
+                ...(column == undefined
                     ? {}
                     : {
                           column,
@@ -171,7 +171,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
             const db = error.message.split(' ').at(1)?.split('"').at(1);
             return {
                 kind: 'DatabaseAlreadyExists',
-                ...(db === undefined
+                ...(db == undefined
                     ? {}
                     : {
                           db,
@@ -197,7 +197,7 @@ function mapDriverError(error: pglite.messages.DatabaseError): MappedError {
 }
 
 function isDriverError(error: unknown): error is pglite.messages.DatabaseError {
-    if (typeof error !== 'object' || error === null) {
+    if (typeof error !== 'object' || error == null) {
         return false;
     }
 

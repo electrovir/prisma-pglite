@@ -45,7 +45,9 @@ export async function resolvePrismaConfigPaths(
      * is idempotent for absolute inputs and keeps this correct even if a relative path slips
      * through.
      */
-    const resolveFromConfig = (filePath: string) => resolve(configDir, filePath);
+    function resolveFromConfig(filePath: string) {
+        return resolve(configDir, filePath);
+    }
 
     const migrationsPath = loaded.config.migrations?.path;
 

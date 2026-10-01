@@ -60,7 +60,7 @@ async function diffSchemas(
 ): Promise<string | undefined> {
     return withTempPglite(async (pglite) => {
         return withSchemaEngine(pglite, async (engine) => {
-            if (fromModels !== undefined) {
+            if (fromModels != undefined) {
                 await engine.schemaPush({
                     force: true,
                     schema: {

@@ -351,7 +351,9 @@ function toJson(json: string): string {
  * BYTEA - arbitrary raw binary strings
  */
 
-const parsePgBytes = (x: string): Uint8Array => Buffer.from(x.slice(2), 'hex');
+function parsePgBytes(x: string): Uint8Array {
+    return Buffer.from(x.slice(2), 'hex');
+}
 
 /*
  * BYTEA_ARRAY - arrays of arbitrary raw binary strings
@@ -445,7 +447,9 @@ export function mapArg<A>(
 }
 
 function formatDateTime(date: Date): string {
-    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    function pad(n: number, z = 2) {
+        return String(n).padStart(z, '0');
+    }
     const ms = date.getUTCMilliseconds();
     return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(
         date.getUTCDate(),
@@ -455,14 +459,18 @@ function formatDateTime(date: Date): string {
 }
 
 function formatDate(date: Date): string {
-    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    function pad(n: number, z = 2) {
+        return String(n).padStart(z, '0');
+    }
     return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(
         date.getUTCDate(),
     )}`;
 }
 
 function formatTime(date: Date): string {
-    const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    function pad(n: number, z = 2) {
+        return String(n).padStart(z, '0');
+    }
     const ms = date.getUTCMilliseconds();
     return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}${
         ms ? `.${String(ms).padStart(3, '0')}` : ''

@@ -352,12 +352,13 @@ describe('adapter error mapping', () => {
             });
 
             await assert.throws(
-                async () =>
-                    prismaClient.region.create({
+                async () => {
+                    return prismaClient.region.create({
                         data: {
                             regionName: 'duplicate',
                         },
-                    }),
+                    });
+                },
                 {
                     matchMessage: 'Unique constraint failed',
                 },
@@ -368,14 +369,15 @@ describe('adapter error mapping', () => {
     it('maps foreign key violations', async (testContext) => {
         await withDataClient(testContext, async (prismaClient) => {
             await assert.throws(
-                async () =>
-                    prismaClient.userPost.create({
+                async () => {
+                    return prismaClient.userPost.create({
                         data: {
                             title: 'orphan',
                             body: 'no user',
                             userId: 'does-not-exist',
                         },
-                    }),
+                    });
+                },
                 {
                     matchMessage: 'Foreign key constraint',
                 },
